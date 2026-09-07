@@ -2,11 +2,13 @@
 
 A minimal React + TypeScript app built with Vite and Tailwind CSS.
 
-Use Node.js 22.12+ (or 20.19+) and npm. Run these commands from the project directory:
+Use Node.js 24 and npm. Run these commands from the project directory:
 
 - `npm ci` — install the dependencies from the npm lockfile.
 - `npm run dev` — start the development server; open the URL printed in the terminal.
 - `npm run lint` — run ESLint.
+- `npm test` — run the unit tests once.
+- `npm run test:watch` — rerun unit tests as files change.
 - `npm run build` — check TypeScript and create a production build in `dist/`.
 - `npm run preview` — serve the production build locally after building.
 
