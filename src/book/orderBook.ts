@@ -2,6 +2,12 @@ import { canonicalPrice, compareDecimals } from "../lib/decimal"
 
 export type SnapshotLevel = readonly [price: string, quantity: string]
 
+export type BookChange = readonly [
+  side: "buy" | "sell",
+  price: string,
+  quantity: string,
+]
+
 export type BookSnapshot = {
   bids: readonly SnapshotLevel[]
   asks: readonly SnapshotLevel[]
@@ -19,17 +25,27 @@ export type OrderBook = {
 
 const VISIBLE_LEVELS = 10
 
-function loadSide(snapshotLevels: readonly SnapshotLevel[]): Map<string, PriceLevel> {
+function applyLevel(
+  levels: Map<string, PriceLevel>,
+  price: string,
+  quantity: string,
+): void {
+  const key = canonicalPrice(price)
+
+  if (compareDecimals(quantity, "0") === 0) {
+    levels.delete(key)
+  } else {
+    levels.set(key, { price: key, quantity })
+  }
+}
+
+function loadSide(
+  snapshotLevels: readonly SnapshotLevel[],
+): Map<string, PriceLevel> {
   const levels = new Map<string, PriceLevel>()
 
   for (const [price, quantity] of snapshotLevels) {
-    const key = canonicalPrice(price)
-
-    if (compareDecimals(quantity, "0") === 0) {
-      levels.delete(key)
-    } else {
-      levels.set(key, { price: key, quantity })
-    }
+    applyLevel(levels, price, quantity)
   }
 
   return levels
@@ -39,6 +55,15 @@ export function createOrderBook(snapshot: BookSnapshot): OrderBook {
   return {
     bids: loadSide(snapshot.bids),
     asks: loadSide(snapshot.asks),
+  }
+}
+
+export function applyChanges(
+  book: OrderBook,
+  changes: readonly BookChange[],
+): void {
+  for (const [side, price, quantity] of changes) {
+    applyLevel(side === "buy" ? book.bids : book.asks, price, quantity)
   }
 }
 

@@ -1,6 +1,5 @@
-import type { BookSnapshot } from "./orderBook"
+import type { BookChange, BookSnapshot } from "./orderBook"
 
-// Deliberately unsorted, with more levels than the page will display.
 export const unsortedSnapshot: BookSnapshot = {
   bids: [
     ["99.94", "1.00000000"],
@@ -31,3 +30,18 @@ export const unsortedSnapshot: BookSnapshot = {
     ["100.15", "1.00000000"],
   ],
 }
+
+export const demonstrationChanges: BookChange[][] = [
+  [
+    ["buy", "100.01", "2.00000000"],
+    ["sell", "100.09", "3.00000000"],
+  ],
+  [
+    ["buy", "100.010", "4.00000000"],
+    ["sell", "100.090", "5.00000000"],
+  ],
+  [
+    ["buy", "100.01", "0"],
+    ["sell", "100.09", "0.00000000"],
+  ],
+]

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { unsortedSnapshot } from "./fixtures"
-import { createOrderBook, selectTopLevels } from "./orderBook"
+import { demonstrationChanges, unsortedSnapshot } from "./fixtures"
+import { applyChanges, createOrderBook, selectTopLevels } from "./orderBook"
 
 describe("createOrderBook", () => {
   it("loads every level from both sides of a snapshot", () => {
@@ -53,6 +53,127 @@ describe("createOrderBook", () => {
     expect(book.asks.size).toBe(0)
     expect(previousBook.bids.size).toBe(12)
     expect(previousBook.asks.size).toBe(12)
+  })
+})
+
+describe("applyChanges", () => {
+  it("runs the insert, replace, and remove demonstration on both sides", () => {
+    const book = createOrderBook(unsortedSnapshot)
+    const initialTop = selectTopLevels(book)
+
+    applyChanges(book, demonstrationChanges[0])
+
+    expect(selectTopLevels(book).bids[0]).toEqual({ price: "100.01", quantity: "2.00000000" })
+    expect(selectTopLevels(book).asks[0]).toEqual({ price: "100.09", quantity: "3.00000000" })
+    expect(book.bids.size).toBe(13)
+    expect(book.asks.size).toBe(13)
+
+    applyChanges(book, demonstrationChanges[1])
+
+    expect(book.bids.get("100.01")?.quantity).toBe("4.00000000")
+    expect(book.asks.get("100.09")?.quantity).toBe("5.00000000")
+    expect(book.bids.size).toBe(13)
+    expect(book.asks.size).toBe(13)
+
+    applyChanges(book, demonstrationChanges[2])
+
+    expect(book.bids.has("100.01")).toBe(false)
+    expect(book.asks.has("100.09")).toBe(false)
+    expect(book.bids.size).toBe(12)
+    expect(book.asks.size).toBe(12)
+    expect(selectTopLevels(book)).toEqual(initialTop)
+  })
+
+  it("leaves the book unchanged for unknown deletions and empty batches", () => {
+    const book = createOrderBook(unsortedSnapshot)
+    const original = createOrderBook(unsortedSnapshot)
+
+    applyChanges(book, [["buy", "90", "0"], ["sell", "110", "0.00000000"]])
+    applyChanges(book, [])
+
+    expect(book).toEqual(original)
+  })
+
+  it.each([
+    { side: "buy", key: "bids", best: "100", deeper: "99.90", canonical: "99.9" },
+    { side: "sell", key: "asks", best: "100.1", deeper: "100.20", canonical: "100.2" },
+  ] as const)("updates an off-screen $side level before removal promotes it", ({ side, key, best, deeper, canonical }) => {
+    const book = createOrderBook(unsortedSnapshot)
+    const originalTop = selectTopLevels(book)[key]
+
+    applyChanges(book, [[side, deeper, "7.00000000"]])
+
+    expect(selectTopLevels(book)[key]).toEqual(originalTop)
+    expect(book[key].get(canonical)?.quantity).toBe("7.00000000")
+
+    applyChanges(book, [[side, best, "0.00000000"]])
+
+    const top = selectTopLevels(book)[key]
+    expect(book[key].has(best)).toBe(false)
+    expect(book[key].size).toBe(11)
+    expect(top).toHaveLength(10)
+    expect(top.slice(0, 9)).toEqual(originalTop.slice(1))
+    expect(top[9]).toEqual({ price: canonical, quantity: "7.00000000" })
+
+    applyChanges(book, [[side, best, "2.00000000"]])
+
+    expect(book[key].size).toBe(12)
+    expect(selectTopLevels(book)[key]).toEqual([
+      { price: best, quantity: "2.00000000" },
+      ...originalTop.slice(1),
+    ])
+    expect(book[key].get(canonical)?.quantity).toBe("7.00000000")
+  })
+
+  it.each(["buy", "sell"] as const)("applies repeated %s replacements, removals, and refills in order", (side) => {
+    const book = createOrderBook({ bids: [], asks: [] })
+    const levels = side === "buy" ? book.bids : book.asks
+
+    applyChanges(book, [
+      [side, "100.0", "2"],
+      [side, "100.00", "3"],
+      [side, "100", "0.00000000"],
+      [side, "100.000", "4"],
+      [side, "100", "5"],
+    ])
+
+    expect([...levels.values()]).toEqual([{ price: "100", quantity: "5" }])
+
+    applyChanges(book, [[side, "100.00", "5"], [side, "100.0", "5"]])
+
+    expect([...levels.values()]).toEqual([{ price: "100", quantity: "5" }])
+
+    applyChanges(book, [[side, "100", "6"], [side, "100.00", "0"]])
+
+    expect(levels.size).toBe(0)
+    expect(selectTopLevels(book)).toEqual({ bids: [], asks: [] })
+  })
+
+  it("keeps changes to the same price independent on each side", () => {
+    const book = createOrderBook({ bids: [["100", "1"]], asks: [["100", "2"]] })
+
+    applyChanges(book, [["buy", "100.00", "3"], ["sell", "100.0", "4"], ["buy", "100", "0"]])
+
+    expect(book.bids.size).toBe(0)
+    expect([...book.asks.values()]).toEqual([{ price: "100", quantity: "4" }])
+  })
+
+  it("preserves precise prices and tiny positive quantities when updating", () => {
+    const book = createOrderBook({
+      bids: [["9007199254740993.001", "1"]],
+      asks: [],
+    })
+
+    applyChanges(book, [
+      ["buy", "9007199254740993.0010", "0.00000000000000000001"],
+      ["buy", "9007199254740993.002", "2"],
+    ])
+
+    expect(selectTopLevels(book).bids).toEqual([
+      { price: "9007199254740993.002", quantity: "2" },
+      { price: "9007199254740993.001", quantity: "0.00000000000000000001" },
+    ])
+    expect(book.bids.size).toBe(2)
   })
 })
 
