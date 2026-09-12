@@ -44,3 +44,34 @@ selectTopLevels tests:
 - To prevent this method from repeating too much logic from loadSide, we have abstracted the logic that removes 0 quantity prices from the book map, updates old prices with new quantities, and slots in new prices. This new method is called applyLevel and is used in both loadSide (initial population of our bid and ask maps) and now applyChanges
 - The fixtures file has a new entry to mimic what updates would look like from coinbase. We have gone with 3 levels. Level 1 includes a new price that does not exist in the original book. Level 2 ensures that prices that appear as different strings but have the same value still update the same key. Level 3 ensures that 0 quantity prices are removed from the map.
 - the top 10 quantities are therefore representative of the latest information, as it is the original book object that gets updated. From here it can be passed through our sorting method selectSideLevels to reorder the top 10 if need be.
+
+### commit 4
+
+- new format.ts file to help us with certain operations we'll need when displaying long numbers / decimals
+- first up we have formatDecimal, which takes in a value (string) and a number which represents the MINIMUM number of digits we want to format the value
+- we pass the value string into parceDecimal (method from decimal.ts from commit 1) which turns it into a Decimal type (big.js package helps with this) then we turn it into a string AGAIN with .toFixed() and split it at the .
+  - once split, we assign the left side of the dot as const integer and the right side as const fraction (which defaults to "" if there is no value)
+- Next, we use .replace and some regex to see where there are positions in the string that has 3 digits remaining to its right, then inserts a comma.
+  - then, we add as many 0s as needed to the fraction portion to meet the requirement from the 'minimum decimals' argument. If the fraction portion already exceeds the minimum decimals then no padding is added.
+- Finally, we return the final formatted decimal with the grouped integer (number with commas) followed by a decimal and then the fraction portion of the number.
+
+- The new formatReceiptLabel method takes in a number of milliseconds since 1 January 1970 UTC (or null) and returns a nicely formatted date.
+
+bookview.ts:
+
+- Essentially just a function that takes our order book, passes it through our already exisiting sorting function, then formats some of our values and returns an object with all the values our display might be interested in
+- To break it down into more detail, the main function is createBookView, where we receive the order book object (unsorted) and a number that represents when we recieved the snapshot.
+- the function passes the book object into our already existing selectTopLevels function (which just sorts the data - bids and asks separately)
+- then creates an array that stores the top bids and the top asks.
+- column precision returns a number to say "at this current level, this is how many decimal places the MOST precise value has". With this level of precision, we pass this number into formatDecimal which will then pad all the numbers with as many 0s as needed to match the number of decimal places of the most precise value.
+  - TODO: need to decide in the future if I still want this functionality. Right now, it exists to support any prices or quantities that come in through the websocket with higher precision than expected. However, in the future, for the sake of a consistent ui that isn't constantly flickering, I may get rid of the column precision method and just pad all prices and quantities to a certain number of decimal places, and truncate / round after this point. e.g., 4 d.p for prices and 8 d.p for quantity. The current functionality supports quantities that are passed in with 10 d.p, then will pad every other number in the column with enough 0s to match its digits.
+- the toRow function then creates rows of objects that represent a singular price level (bids and asks seperately), including a unique id, price, quantity and labels for these variables too
+- uses object.freeze to make sure none of the variables can be mutated once it is set to a row
+  - object.freeze is used quite a few times here. Upon some further discovery, this method is conceptually similar to typescript's 'readonly' tag, but object.freeze exists on a javascript runtime level.
+  - prevents shallow mutation of an object. This is why its called so many times, to freeze the respective variables that we don't want to be changed
+- best bids and asks are set by drawing out the first value in each respective array (select side level will organise 'best' price from index 0 onwards, regardless of bid or ask)
+- entire function then returns these variables, also freezing it and using placeholders where the values aren't available
+
+UPDATE:
+
+- After reviewing further, decided to remove the object freezing. I understand its defensive intent, it prevents any rows from being mutated, which we do not want. However, these rows will be constantly replaced as updates are streamed in from coinbase. Freezing them adds an extra layer of work and cognitive complexity that doesn't really protect against anything other than a strict warning to other devs to not mutate these rows. I will remove it for the sake of keeping this project lean, and review it if any issues regarding mutation during runtime occur.
