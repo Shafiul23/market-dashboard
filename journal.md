@@ -1,4 +1,4 @@
-### commit 1
+### step 1
 
 - setting up big.js. This is a dependency that will help with large numbers, high precision decimals and the maths required to manipulate them.
   - The reasoning behind this is that javascript (and computers in general) cannot store certain numbers with perfect accuracy using finite floating data types. This is because binary is a base 2 system, so numbers like 0.1 do not have a neat binary representation (it goes on forever).
@@ -7,7 +7,7 @@
   - What big.js does to solve this is it converts numbers into a string and stores each digit in an array. By extracting the integers from a number (big or small), javascript can accurately represent and compute them since integers can be described nicely by binary. Once the computations are done, big.js can revert the numbers back using the sign and exponent that it knows about the number.
   - e.g., 0.1 + 0.2 might extract the 1 from 0.1, 2 from 0.2, add them, then apply the exponent of -1 to turn 3 into 0.3. This way, the accuracy is preserve at the cost of more memory and computation
 
-### commit 2
+### step 2
 
 Will explain these changes using the 'describe' tests and explaining the flow of data:
 
@@ -35,21 +35,21 @@ selectTopLevels tests:
     - if we DO find a match, then we splice the found entry from the unsorted level into the sorted one, and pop any values that exceed the visibile levels limit which is the lowest value
   - all of this to say, the selectsidelevels method sorts 10 pricelevel entries in order of high to low for bids, and low to high for asks and pops the rest, without changing the original map.
 
-### commit 3
+### step 3
 
 - from the coinbase api, we get 'snapshots' which contains the data we need to create our orderbooks. When a new snapshot comes in, createOrderBook can create a fresh book to ensure no stale data.
 - however, it also provides 'updates' through the websocket connection. In these smaller packets of data, it provides us with side, price and quantity data.
-- In this commit, we process these updates with a new method, applyChanges. This method will take the original book and pass in the changes too. The original book will get mutated by slotting in new prices as new entries in the map and updating existing prices with the new quantities from the update.
+- In this step, we process these updates with a new method, applyChanges. This method will take the original book and pass in the changes too. The original book will get mutated by slotting in new prices as new entries in the map and updating existing prices with the new quantities from the update.
 - These new prices are processed synchronously to ensure the latest values win
 - To prevent this method from repeating too much logic from loadSide, we have abstracted the logic that removes 0 quantity prices from the book map, updates old prices with new quantities, and slots in new prices. This new method is called applyLevel and is used in both loadSide (initial population of our bid and ask maps) and now applyChanges
 - The fixtures file has a new entry to mimic what updates would look like from coinbase. We have gone with 3 levels. Level 1 includes a new price that does not exist in the original book. Level 2 ensures that prices that appear as different strings but have the same value still update the same key. Level 3 ensures that 0 quantity prices are removed from the map.
 - the top 10 quantities are therefore representative of the latest information, as it is the original book object that gets updated. From here it can be passed through our sorting method selectSideLevels to reorder the top 10 if need be.
 
-### commit 4
+### step 4
 
 - new format.ts file to help us with certain operations we'll need when displaying long numbers / decimals
 - first up we have formatDecimal, which takes in a value (string) and a number which represents the MINIMUM number of digits we want to format the value
-- we pass the value string into parceDecimal (method from decimal.ts from commit 1) which turns it into a Decimal type (big.js package helps with this) then we turn it into a string AGAIN with .toFixed() and split it at the .
+- we pass the value string into parceDecimal (method from decimal.ts from step 1) which turns it into a Decimal type (big.js package helps with this) then we turn it into a string AGAIN with .toFixed() and split it at the .
   - once split, we assign the left side of the dot as const integer and the right side as const fraction (which defaults to "" if there is no value)
 - Next, we use .replace and some regex to see where there are positions in the string that has 3 digits remaining to its right, then inserts a comma.
   - then, we add as many 0s as needed to the fraction portion to meet the requirement from the 'minimum decimals' argument. If the fraction portion already exceeds the minimum decimals then no padding is added.
@@ -75,3 +75,17 @@ bookview.ts:
 UPDATE:
 
 - After reviewing further, decided to remove the object freezing. I understand its defensive intent, it prevents any rows from being mutated, which we do not want. However, these rows will be constantly replaced as updates are streamed in from coinbase. Freezing them adds an extra layer of work and cognitive complexity that doesn't really protect against anything other than a strict warning to other devs to not mutate these rows. I will remove it for the sake of keeping this project lean, and review it if any issues regarding mutation during runtime occur.
+
+### step 5
+
+Essentially, the goal of this step was to review the shape of the data that would be received from coinbase (using the docs) and create some validators that would confirm that is actually what we received. This step is important because all of our logic assumes that the data we recieved is already in this shape - would be irresponsible to pass in data that hasn't been validated.
+
+- my first step was reviewing the shape of the messages I would be receiving from coinbase. There are many but the ones relevant to this project are snapshots, l2update, heartbeat and subscriptions. Coinbase shows what the shape of each of these types will look like, so every validator function tests each layer of these shapes.
+- the most fundamental ones are checks like nonempty strings and record checks (want it to be an object, not an array)
+  - on the topic of arrays, the agent implemented 'Array.isArray()' quite often and I wondered why this was being used instead of typeof value === 'array' or something similar.
+  - upon further research, there are some edge cases where instanceof array will return a false negative
+  - it looks at the data types prototype, and if it cannot find array it will return false, however, there are edge cases where arrays can be constructed without the array prototype
+  - Probably not relevant for this specific project but a non harmful and upgraded way to ensure our array checks are accurate
+- We also check for quantities using regex and prices with the help of our big.js functions
+- ultimately, each function checks to see if what is being passed in matches the documented datashapes from coinbase.
+- The final function of this file takes in the raw json and methodically returns early or throws an error case by case, ending at a switch statement that returns the expected validation messages based on the type of data we're receiving
