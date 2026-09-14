@@ -81,7 +81,7 @@ describe("decodeCoinbaseMessage", () => {
 
   it("ignores unsupported message types without inspecting their payload", () => {
     expect(
-      decode({ type: "ticker", product_id: "BTC-USD", price: null }),
+      decode({ type: "ticker", product_id: "BTC-GBP", price: null }),
     ).toBeNull()
     expect(decode({ type: "future-message" })).toBeNull()
   })
@@ -89,7 +89,7 @@ describe("decodeCoinbaseMessage", () => {
   it.each(["snapshot", "l2update", "heartbeat"])(
     "ignores %s data for another product",
     (type) => {
-      expect(decode({ type, product_id: "ETH-USD" })).toBeNull()
+      expect(decode({ type, product_id: "ETH-GBP" })).toBeNull()
     },
   )
 
@@ -230,7 +230,7 @@ describe("decodeCoinbaseMessage", () => {
       {},
       [null],
       [{}],
-      [{ name: "heartbeat", product_ids: "BTC-USD" }],
+      [{ name: "heartbeat", product_ids: "BTC-GBP" }],
       [{ name: "", product_ids: [] }],
       [{ name: "heartbeat", product_ids: [123] }],
     ].map((channels) => ({ channels })),

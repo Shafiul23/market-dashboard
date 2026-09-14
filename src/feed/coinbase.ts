@@ -1,7 +1,7 @@
 import type { BookChange, BookSnapshot, SnapshotLevel } from "../book/orderBook"
 import { compareDecimals } from "../lib/decimal"
 
-export const COINBASE_PRODUCT = "BTC-USD"
+export const COINBASE_PRODUCT = "BTC-GBP"
 
 type SubscriptionChannel = {
   name: string

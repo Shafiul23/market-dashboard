@@ -89,3 +89,9 @@ Essentially, the goal of this step was to review the shape of the data that woul
 - We also check for quantities using regex and prices with the help of our big.js functions
 - ultimately, each function checks to see if what is being passed in matches the documented datashapes from coinbase.
 - The final function of this file takes in the raw json and methodically returns early or throws an error case by case, ending at a switch statement that returns the expected validation messages based on the type of data we're receiving
+
+### step 6
+
+- Very simple update. Mostly agent driven. Created a skeleton / first draft of the landing dashboard.
+- Uses tailwind for styling, semantic headings and is responsive.
+- also updated all references to usd to gbp
