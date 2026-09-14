@@ -12,5 +12,10 @@ Use Node.js 24 and npm. Run these commands from the project directory:
 - `npm run build` — check TypeScript and create a production build in `dist/`.
 - `npm run preview` — serve the production build locally after building.
 
-Start editing `src/App.tsx`. Tailwind is loaded through `src/index.css` and the
-`@tailwindcss/vite` plugin in `vite.config.ts`.
+To inspect the layout with sample data, run `npm run dev` and open
+`/fixtures.html` on the local URL printed by Vite. Use the selector to review
+populated, waiting, short-book, stale, empty-bid, and larger-value states.
+Resize the browser to check desktop and stacked layouts. The fixture page uses
+the same `createOrderBook` → `createBookView` → `App` path as real data.
+Edit `src/dev/FixturePreview.tsx` to try different prices and quantities. This separate
+preview entry is excluded from the production build.

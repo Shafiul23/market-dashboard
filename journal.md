@@ -95,3 +95,36 @@ Essentially, the goal of this step was to review the shape of the data that woul
 - Very simple update. Mostly agent driven. Created a skeleton / first draft of the landing dashboard.
 - Uses tailwind for styling, semantic headings and is responsive.
 - also updated all references to usd to gbp
+
+### step 7
+
+The outline of the dashboard has been set. From top to bottom:
+
+- section 1 will be the market header - this will contain the asset being viewed as well as connection status
+  - connection status will be announced via screenreaders due to aria-live logic (polite so it won't interrupt anything being read out, and atomic so the entire label is read out)
+  - Upgrade? -> dropdown here to look at more assets in the future
+- section 2 will contain the 'data freshness' section. Here, users will be able to see if the data they're looking at is good / fresh, stale, or in a waiting state
+  - Some clarification here: the waiting state will mean that we are expecting an initial orderbook to come through
+  - the stale section means the data being looked at is outdated. Stale state may come about as a result of a failed update within a batch - our current logic throws out entire batches if any information is invalid. This would mean some correct data may be thrown out, so its important to label the data being displayed as stale
+  - TODO: will investigate a lot of this logic later on with React Suspense in mind
+- section 3 is the market overview section, this will simply show the best bid, best ask and spread from the data it is being fed
+- section 4 is the actual order book. Here we can see bids and asks in separate tables, side by side.
+  - upgrade? -> dropdown to decide how many levels are visible? currently at 10
+  - some cool features here: the table itself has accessibility features like declaring the scope of table info.
+  - The dimensions of the table are fixed. This means that even if the orderbook size falls short and there are less than 10 entries on either side, the table will not shrink or change size. Stable dimensions means less strain on the eyes and easier comparisons. 
+    - Currently not a fan of the layout. It looks nice enough but I would prefer it to be more functional, meaning the gap between the tables will be removed in the future. Will have the two tables sit closer together with an easier way to compare the bids vs the asks. Right now, the eye has to move quite far to make these comparisons. May also switch the order of the headers around to make it symmetrical, e.g., price quantity | quantity price. This is dependant on which header I think makes the best comparison. May even make a 'volume' header the focal point - I'll need to make a new derived value in my orderbook logic that calculates this.
+    - Some ideas for now: highest volume in the available sorted data will be represented by a bar that takes the whole width of the table. Subsequent bids / asks will have shrinking bars proportional to their volume. This way, can see the distribution of bids and asks at a glance by seeing the shape of the data.
+    - Also want to experiment with table lines. There aren't many now but will assess how clear it is to view the data vs how cluttered it would look with row and column separators
+- section 5, the final section, will just show the most recent receipt label so we have a timestamp for when the application last received data
+
+Extras:
+
+- Added a dev view to test out what different fixtures would look like when passed in. Populated states, empty states, mixed states etc
+
+Will need to consider how often I show updates, where I'd like to implement suspense boundaries, what transition logic I'd like to introduce, tradeoffs between pleasant ui and fast, functional data.
+
+Tradeoffs made:
+- cleaned up some clutter, e.g., removing units from table headers since they are mentioned in the paragraph tag above. 
+  - This could confuse screen readers who skip straight to the table so added a screen reader only span that clarifies the units for the headers
+- First shot at this step had all the logic sitting inside App.tsx. I personally prefer keeping this file quite lean, so abstracted most of the logic out, utilising the atomic file structure that I'm used to
+  - All thats left in App.tsx now is the state that needs to be passed down into the child components
