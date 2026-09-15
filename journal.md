@@ -1,3 +1,5 @@
+This file is my braindump for this project. Will include notes on my understanding of all the features, updates and tradeoffs. Agents have been instructed to not touch this file, it is all my thoughts and reviews of the project at each incremental step.
+
 ### step 1
 
 - setting up big.js. This is a dependency that will help with large numbers, high precision decimals and the maths required to manipulate them.
@@ -111,7 +113,7 @@ The outline of the dashboard has been set. From top to bottom:
 - section 4 is the actual order book. Here we can see bids and asks in separate tables, side by side.
   - upgrade? -> dropdown to decide how many levels are visible? currently at 10
   - some cool features here: the table itself has accessibility features like declaring the scope of table info.
-  - The dimensions of the table are fixed. This means that even if the orderbook size falls short and there are less than 10 entries on either side, the table will not shrink or change size. Stable dimensions means less strain on the eyes and easier comparisons. 
+  - The dimensions of the table are fixed. This means that even if the orderbook size falls short and there are less than 10 entries on either side, the table will not shrink or change size. Stable dimensions means less strain on the eyes and easier comparisons.
     - Currently not a fan of the layout. It looks nice enough but I would prefer it to be more functional, meaning the gap between the tables will be removed in the future. Will have the two tables sit closer together with an easier way to compare the bids vs the asks. Right now, the eye has to move quite far to make these comparisons. May also switch the order of the headers around to make it symmetrical, e.g., price quantity | quantity price. This is dependant on which header I think makes the best comparison. May even make a 'volume' header the focal point - I'll need to make a new derived value in my orderbook logic that calculates this.
     - Some ideas for now: highest volume in the available sorted data will be represented by a bar that takes the whole width of the table. Subsequent bids / asks will have shrinking bars proportional to their volume. This way, can see the distribution of bids and asks at a glance by seeing the shape of the data.
     - Also want to experiment with table lines. There aren't many now but will assess how clear it is to view the data vs how cluttered it would look with row and column separators
@@ -124,7 +126,35 @@ Extras:
 Will need to consider how often I show updates, where I'd like to implement suspense boundaries, what transition logic I'd like to introduce, tradeoffs between pleasant ui and fast, functional data.
 
 Tradeoffs made:
-- cleaned up some clutter, e.g., removing units from table headers since they are mentioned in the paragraph tag above. 
+
+- cleaned up some clutter, e.g., removing units from table headers since they are mentioned in the paragraph tag above.
   - This could confuse screen readers who skip straight to the table so added a screen reader only span that clarifies the units for the headers
 - First shot at this step had all the logic sitting inside App.tsx. I personally prefer keeping this file quite lean, so abstracted most of the logic out, utilising the atomic file structure that I'm used to
   - All thats left in App.tsx now is the state that needs to be passed down into the child components
+
+### step 8
+
+This step involves setting up the WebSocket controller and some tests using a fake socket and some new fixtures
+
+- the main new function here is createBookFeed. This is the function that handles setting up the WebSocket connection and handling the different types of events.
+- at first it will create a bunch of empty variables that will get populated throughout the websocket process. Things like a null book object and a state object.
+- early on in the function, we define an important function: dispose. What this function does is removes all the handlers and closes the connection. It is also idempotent so can be called multiple times (returns early if disposed boolean is true, and sets it to true after this check)
+  - websockets come with a bunch of events, like open, close, message and error. Its through these events that information is streamed between the client and the server. For example, we start off with an open even and then send a message asking for the specific products we want. A message event is then sent back with the data we want.
+  - this dispose function is particularly important since it closes the events -> essentially shutting down the streaming
+  - All the functions are constantly listening out for events, which is why they're so defensive. For example, the connection might already be in the process of closing but while that is happening, it might sent out many objects of data. One particular property of a socket is called readyState
+    - this will return numbers 0-4 which represent different levels of connection, from 'connecting' to 'open' to 'closing' to 'closed'
+    - the dispose function will check to see it the number is 0 or 1 before calling the close method
+- the fail function comes next and is responsible for updating the state object with an error message.
+  - many other functions call fail, even the handler that closes the connection will call the fail method with a message that conveys the connection is closed
+- Next, we attempt to set up the websocket inside a try catch block. If it fails then we pass the error message into the fail function which can be shaped to give the consumer the information they need. If it succeeds then it starts the process of establishing a connection to the server
+- once the websocket is created, the open event is fired. Here, we check if disposed or opened is true, in either of these cases we do not want to do anything and can early return. However, if we have not done anything after opening and we're not in the process of disposing, we attempt a send.
+  - Here, we send out a json object where we make the initial subscribe request. We update the state to synchronising while this is happend (and account for the failure case)
+- The other event we listen out for is the message event. If we're disposing or haven't opened yet, we early return. Otherwise, we check to see if the data in the event message is a string. If not, we throw and error and if yes then we attempt to decode the data.
+  - we do not want the message to be a subscriptions type, this doesn't provide any information we can make a book or update out of
+  - If it is of type snapshot, we create an orderbook and update our view with this book and the timestamp of when we processed that we received a snapshot
+  - if it is an update, we make sure we have a snapshot first (or else throw an error) then call the a method to slot in the updated data into a fresh book view.
+  - if its a heartbeat type then we just track that we're ready and break out.
+- only if we have a valid book object and our heartbeat is ready do we claim that we're live, otherwise it will set to synchronising (unless an error or failure)
+- Finally, the last return returns a callback to dispose. This means a const can be assigned to this function and invoked whenever it needs to be disposed (which handles removing the handlers and closing the connection)
+
+- The tests are comprehensive. They cover many edge cases and take advantage of new fixtures and a fake websocket. I have added a bunch of console logs that can be toggled with a boolean at the top of the file. When this is set to true we can see what the data flow of a websocket connection might look like between a consumer, the controller and the socket

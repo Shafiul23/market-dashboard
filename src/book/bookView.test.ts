@@ -10,7 +10,6 @@ describe("createBookView", () => {
     const book = createOrderBook(unsortedSnapshot)
     const view = createBookView(book, receivedAt)
     const top = selectTopLevels(book)
-    // console.log(JSON.stringify(view))
 
     for (const side of ["bids", "asks"] as const) {
       expect(view[side]).toHaveLength(10)

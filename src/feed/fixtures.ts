@@ -1,4 +1,3 @@
-// Coinbase Exchange wire-format examples
 // https://docs.cdp.coinbase.com/exchange/websocket-feed/channels
 export const snapshotMessage = {
   type: "snapshot",
