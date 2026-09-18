@@ -158,3 +158,42 @@ This step involves setting up the WebSocket controller and some tests using a fa
 - Finally, the last return returns a callback to dispose. This means a const can be assigned to this function and invoked whenever it needs to be disposed (which handles removing the handlers and closing the connection)
 
 - The tests are comprehensive. They cover many edge cases and take advantage of new fixtures and a fake websocket. I have added a bunch of console logs that can be toggled with a boolean at the top of the file. When this is set to true we can see what the data flow of a websocket connection might look like between a consumer, the controller and the socket
+
+### step 9
+
+Very interesting step here. The aim was to implement retry logic, backoff logic and even jittering. I learned a lot through different documents, including the websocket protocol document and an aws document that explains how they handle timeouts, retries and jitter:
+https://www.rfc-editor.org/rfc/rfc6455.html#section-7.2.3
+https://d1.awsstatic.com/builderslibrary/pdfs/timeouts-retries-and-backoff-with-jitter.pdf
+
+I didn't quite understand why this was needed but the reasoning is highlighted in section 7.2.3 in the web socket protocol all the way back in 2011. Essentially, some errors can be transient, meaning some temporary failure among the chain of communication from client to server. In these cases, a retry usually fixes the error or failure.
+
+However, sometimes the error can be more substantial - such that retrying would just cause unnecessary load on the server and potentially even cause a denial of service-like load. The solution to this is 'backoff', which just means that you should retry, but just space out the retries so the server has some space to breathe. The 2011 document also highlights that backoff retries should also be delayed by increasingly longer intervals.
+
+Lastly, we have jitter. To simplify, it boils down to adding some randomness to the delay when making a retry attempt. The reason for this is that if every client that was requesting data from coinbase suddenly received a failure then continued to retry, then the services might become overloaded before it can recover. Most of these clients will probably include some backoff logic, but if everyone made the same retry attempt in 1s, then 5s, then 10s, then 30s, etc then the service may have a little room to breathe but would still be getting attacked in clusters.
+
+This is why the jitter logic is a little overkill for this project, because the likelihood that my non-jitter retries are perfectly inline with other clients is pretty low. I'm going to leave it in anyway because I like the logic and is ultimately a positive.
+
+New code updates:
+
+- Simple explanation: no more failure state, we just continue to retry if anything causes a failure. The retries will happen with longer delays each time (up to max), and will have some slight randomness to them.
+  - this includes everything that causes a failure, such as an update that arrives before a snapshot like we mentioned in the previous step. The function will now close the socket and attempt a retry to establish a new connection
+
+More detail:
+
+- initial retry ceiling is 1s, which will scale up to the max retry length of 30s. Will continue to retry at random intervals close to the max until application is stopped or manual user intervention (I would like to add this feature)
+  - healthy session const is also 30s and refers to how long we need to establish a 'live' connection before we reset the backoff timer
+  - Speaking of, we have removed the failed status and replaced it with reconnecting. This is because the app will continually try to reconnect unless stopped. (or user manually disconnecting)
+- introduced a new 'isStale' variable that will update to true when the fail function is invoked. This will only be updated when the 'live' boolean is set to true (after reconnection is successful)
+  - This is a separate boolean that tracks when data is unreliable when looked at
+- A lot of the dispose logic that was responsible for setting the handlers to null and closing the socket has now been abstracted to a 'closeSocket' function.
+- the dispose function now increments attemptId, which can act as an invalidation token, clears the timers and calls the closesocket function
+- new 'connect' function that replaces the old try catch logic that would send out the first attempt to establish a connection.
+  - this introduces an important 'isCurrent' function which checks to see if we're on a current attempt. attemptId is incremented every time we call dispose, fail and connect. If the id variable tracking attemptId is mismatched, it would only be because of of an increment caused by another function - acting as an invalidation token
+- if the function has made it to this point then it will update the state to 'connecting...'
+- After this we'll attempt to establish the connection by creating the web socket object.
+  - we track the socket object with a new variable called attemptSocket, which just points to the same object that socket points to when created while surviving and 'socket = undefined' calls that happen on disposal / closeSocket()
+  - from here its basically the same logic as the previous step with the switch that checks for message type from coinbase
+  - one new feature is the healthytimer. Live can be true as long as book is not null and a heartbeat has come through, however, it needs to have been true for 30 seconds before we reset the backoff timer. That means, as we're increasing the delay, if we get a temporary live status we don't just immediately snap back to our initial retry value of 1000 ms. If we fail 5s in, then the backoff timer will continue to grow from the latest delay, not start fresh.
+  - One key thing to note here is how connecting again always creates a fresh book. We don't want to build on any stale data so we just clear it out and request a new snapshot from the websocket.
+
+  - Loads more i learned in this step: refresher on callbacks, closures and a lot of the logic around the id, attemptid and setTimeout function but this is more vanilla javascript that is not project specific or interesting to note.
