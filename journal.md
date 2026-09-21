@@ -258,3 +258,12 @@ In this step, we introduce a publication throttle to slightly delay how often th
 - once our status HAS been updated, then every time we get a snapshot or update websocket message, we trigger the publication timer and push all the updates that accumulate in this window
 - this will throttle how often we're updating book
   TODO: once view is setup, remove this feature, measure using react profiling tools, then measure again when reimplementing. I would like to see how this feature affects performance.
+
+## step 12
+
+In this step, we wire up the controller to the dashboard view. Shuffled some things around by extracting a Dashboard.tsx but ultimately, we can now view the actual order book we have created.
+
+- pulled out dashboard logic from app. As a reminder, this has a few sections like the market header, data freshness, overview and the actual order book
+- The meat of this change comes from the new useOrderBook hook. Here, we setup a callback to the createBookFeed function inside a useEffect with an empty dependency array. On the effects setup, the createBookFeed function is called and the controller is set up.
+  - this creates the state object which is handled by the useState hook inside useOrderBook.ts, and is reponsible for all the data that is pulled out of the state object to feed to the components, as well as updating it.
+- On desync, we call what was returned by the createBookFeed function, the dispose function - closing the websocket connection.

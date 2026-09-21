@@ -1,5 +1,5 @@
 import { useState } from "react"
-import App from "../App"
+import { Dashboard } from "../components/Dashboard"
 import { createBookView } from "../book/bookView"
 import { createOrderBook } from "../book/orderBook"
 import type { BookSnapshot } from "../book/orderBook"
@@ -56,7 +56,7 @@ export default function FixturePreview() {
           </select>
         </div>
       </div>
-      <App
+      <Dashboard
         view={view}
         connectionLabel={
           isWaiting ? "Connecting" : isStale ? "Reconnecting" : "Connected"

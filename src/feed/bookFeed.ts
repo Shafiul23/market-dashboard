@@ -33,6 +33,14 @@ export type BookFeedState = Readonly<{
   error: string | null
 }>
 
+export const initialBookFeedState: BookFeedState = {
+  status: "Connecting",
+  view: createBookView(createOrderBook({ bids: [], asks: [] }), null),
+  isStale: true,
+  receivedAt: null,
+  error: null,
+}
+
 type BookFeedOptions = {
   onChange: (state: BookFeedState) => void
   createSocket?: (url: string) => FeedSocket
@@ -61,13 +69,7 @@ export function createBookFeed({
   let online = lifecycle.isOnline()
   let interrupt: ((error: Error) => void) | undefined
   let checkHealth: (() => boolean) | undefined
-  let state: BookFeedState = {
-    status: "Connecting",
-    view: createBookView(createOrderBook({ bids: [], asks: [] }), null),
-    isStale: true,
-    receivedAt: null,
-    error: null,
-  }
+  let state = initialBookFeedState
 
   function closeSocket(): void {
     if (!socket) return
