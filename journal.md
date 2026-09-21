@@ -197,3 +197,54 @@ More detail:
   - One key thing to note here is how connecting again always creates a fresh book. We don't want to build on any stale data so we just clear it out and request a new snapshot from the websocket.
 
   - Loads more i learned in this step: refresher on callbacks, closures and a lot of the logic around the id, attemptid and setTimeout function but this is more vanilla javascript that is not project specific or interesting to note.
+
+### step 10
+
+Previously, handled controller -> socket interactions, listened for the different events and messages that can come from the socket and handled edge cases like failures, messages out of order (e.g., update before snapshot), etc.
+In this step, we also handle controller -> browser interactions. One example is how a browser might notice that it is disconnected from the network. This has nothing to do with the socket so would not be picked up by current error handling methods. We also listen out for the heartbeat channel and use that to ensure the validity of our data.
+
+- to start, we added browserLifecycle.ts. The purpose of this object is to set up some event handlers so we can start to listen out for events like 'offline', 'online' and 'visible'.
+  - it defines two functions as its keys, the first being isOnline. First, this method will see if a navigator object is defined. This is a global variable on the same level as 'window' and document'. If it doesn't exist then we don't let that return false, we just assume true to not break anything. However, if the object DOES exist, then we look at the onLine method inside it to return true or false based on its status.
+  - The second function, subscribe, takes in 3 function references. No logic is decided here, it just gives us the option to say "I see an offline event, execute this function, whatever it is".
+    - the 3 functions are online, offline and visibilitychange. The online method differs from our previous logic because this one comes from window, not navigator. 'Online' is a notification that comes from the browser to update us that the state of the browser has changed. navigator.onLine is something we can read to check the current status of online or not, so slightly different.
+    - offline is another window event that notifies us when the browser notices that we're offline now.
+    - visibilitychange is a document method, and sends us an update when certain visible changes occurs, like a tab switch, a window minimises, etc.
+      - This is an interesting method. Some of the orderbooks I researched online before starting this project did not seem to stop pushing updates even when I switched tabs.
+  - tradeoff: don't necessarily need the object. We could just have an 'isOnline' function and a 'subscribeToLifecycle' function in the file. Housing them in one object perhaps adds a layer of complication but both the functions are related so it isn't too crazy to clump them togehter here.
+  - second tradeoff: could keep our data very responsive by continuing computations even when the user is tabbed away from the page, so it's ready to view as soon as they're back or could limit the data we are processing by suspending our connection with the web socket if a 'hidden' event from the visibilitychange listener is triggered (maybe with a 5-10 s delay)
+
+Now for the updates to the controller:
+
+- to summarise, we now introduced some new timers to the controller to add an extra layer of validity to our labels for the data the user can see.
+  - what this means is we're checking the heartbeat pings to be sure of our 'live' status when we're displaying data and to update to stale if we miss heartbeats.
+  - we're also listening out for browser events that would mean the data is stale, such as offline events.
+- In more detail: we introduced 3 more consts, a connection timeout (10 s) a sync timeout (10 s) and a heartbeat timeout (5 s)
+  - the connection timeout will start on a connection attempt. We use performance.now() + the 10 s grace from this const to track the time the connection was made, then set a deadline by adding 10 seconds.
+    - side note: wondered why we didn't use Date.now() here but the reasoning is that Date.now() returns the number of milliseconds since the 1970 epoch. This is good for knowing when something happened, but it is weaker when it comes to figuring out elapsed time because it is subject to corrections or manual changes.
+    - performance.now() is monotonic so wall-clock adjustments won't move it backwards, making it more suitable for computing elapsed time but less suitable for tracking when something happened.
+  - A separate time variable is created using performance.now each time the 'healthy' function is pinged, and if this exceeds the deadline then we pass in an error message to the fail() function to say whether the connection itself timed out, or if it was opened but the syncronisation failed
+  - the sync timeout is very similar to the connection timeout, but it sets the deadline to 10 s after opening the socket, not 10s after invoking connect() (which is what the connection timeout is for)
+  - Lastly, the heartbeat timeout is computed when we receive a heartbeat type message from coinbase + 5s, and if the time variable created when we ping healthy() is greater than this deadline, we report it to the authorities (the fail() method)
+
+Some updates on the onmessage handler:
+
+- removed the state updates that created / updated the book view inside the message.type switch. It used to listen for snapshot type messages, then use the message to create a book. We then passed in the book with the receipt time to create a book view. Similar process for the l2update.
+- now, we moved this logic outside of the switch and let a higher scope mutate with any message type that made it this far (after filtering out heartbeats, these don't go in the state object). The state object for both snapshots and l2updates was doing the same thing: spreading state, creating a view with the message and a timestamp, and creating a receipt label.
+- However, the new logic now also accounts for heartbeats. If we have a snapshot we start processing the bookview with the timestamps and receipts, but we don't actually display the data until we also have the first heartbeat come through.
+
+New methods:
+
+- healthy(), watch(), unsubscribe()
+- healthy has been discussed somewhat already: it essentially checks if we've passed any of the deadlines with all the consts mentioned above.
+- the watch function tracks how long we have left until the earliest deadline. It bases this length of time on our deadline variables that are derived from time variables and the constants at the top of the file. Its job is to call healthy at defined intervals. If healthy() returns true, we schedule in another appointment with healthy at the next earliest deadline. If it isn't then the failure case in the healthy method will trigger a fail and handle closing the socket.
+- the unsubscribe function is set to what the subscribe function (inside browserLifecycle object) returns. Just declaring the variable name though sets off the subscribe listeners and activates all the handlers.
+  - on an offline event from the browser, the offline() function will clear the retryTimer, trigger the fail method (throught the intermediary 'interrupt' method) and update the state object
+    - the reason we have interrupt is because fail is nested inside the connect function. Cannot invoke it directly from the scope that offline() exists in
+  - an online event from the browser will checkHealth() if the function exists. If not or if it fails, we set 'online' boolean to true and attempt to connect
+    - similarly to the interrupt function, checkHealth exists because we cannot invoke healthy() from the scope that this online method exists.
+  - Finally, if a visible event is triggered, we just check the health of the page. Will likely update this in the future to disconnect from the websocket after 5 seconds of a hidden event
+- if we're not online, we update the state to reconnecting
+
+review:
+
+- do we need 'receivedAt' that lives inside the BookFeedState? Everytime it is being updated, the time being computed is also being passed into createBookView({bookSnapshot, time}), so we're passing computed time into two separate places. In the bookview it makes sense since we produce a receipt label but the receivedAt key in the book feed state isn't being used anywhere.

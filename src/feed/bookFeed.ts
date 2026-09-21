@@ -35,7 +35,6 @@ export type BookFeedState = Readonly<{
 type BookFeedOptions = {
   onChange: (state: BookFeedState) => void
   createSocket?: (url: string) => FeedSocket
-  // Wall time labels book receipts; monotonic time measures health deadlines.
   now?: () => number
   monotonicNow?: () => number
   random?: () => number
@@ -125,15 +124,17 @@ export function createBookFeed({
       onChange(state)
     }
 
-    // Timers can be suspended in a background tab. Check elapsed time again
-    // before accepting events, so a late heartbeat cannot revive an old book.
     function healthy(): boolean {
       if (!isCurrent()) return false
       const time = monotonicNow()
       if (time >= phaseDeadline) {
-        fail(new Error(
-          opened ? "Coinbase synchronisation timed out" : "Coinbase connection timed out",
-        ))
+        fail(
+          new Error(
+            opened
+              ? "Coinbase synchronisation timed out"
+              : "Coinbase connection timed out",
+          ),
+        )
         return false
       }
       if (time >= heartbeatDeadline) {
@@ -145,9 +146,15 @@ export function createBookFeed({
 
     function watch(): void {
       clearTimeout(watchdogTimer)
-      watchdogTimer = setTimeout(() => {
-        if (healthy()) watch()
-      }, Math.max(0, Math.min(phaseDeadline, heartbeatDeadline) - monotonicNow()))
+      watchdogTimer = setTimeout(
+        () => {
+          if (healthy()) watch()
+        },
+        Math.max(
+          0,
+          Math.min(phaseDeadline, heartbeatDeadline) - monotonicNow(),
+        ),
+      )
     }
 
     interrupt = fail
@@ -223,7 +230,6 @@ export function createBookFeed({
             if (healthy()) retryCeiling = INITIAL_RETRY_MS
           }, HEALTHY_SESSION_MS)
         }
-        // Keep the published book until this attempt has both readiness signals.
         if (live && (message.type !== "heartbeat" || state.status !== "Live")) {
           state = {
             ...state,
@@ -287,8 +293,9 @@ export function createBookFeed({
       if (!disposed) checkHealth?.()
     },
   })
-  if (online) connect()
-  else {
+  if (online) {
+    connect()
+  } else {
     state = { ...state, status: "Reconnecting", error: "Browser is offline" }
     onChange(state)
   }

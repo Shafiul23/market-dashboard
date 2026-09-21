@@ -49,7 +49,14 @@ function setup(trace = false, random = vi.fn(() => 0), initiallyOnline = true) {
       }),
     )
   })
-  const dispose = createBookFeed({ createSocket, now, monotonicNow, random, onChange, lifecycle })
+  const dispose = createBookFeed({
+    createSocket,
+    now,
+    monotonicNow,
+    random,
+    onChange,
+    lifecycle,
+  })
   const socket = sockets[0]
   if (trace) {
     socket.send.mockImplementation((data) => {
@@ -57,7 +64,19 @@ function setup(trace = false, random = vi.fn(() => 0), initiallyOnline = true) {
     })
   }
   const latest = () => onChange.mock.calls.at(-1)![0]
-  return { socket, sockets, createSocket, now, monotonicNow, random, onChange, dispose, latest, events, unsubscribe }
+  return {
+    socket,
+    sockets,
+    createSocket,
+    now,
+    monotonicNow,
+    random,
+    onChange,
+    dispose,
+    latest,
+    events,
+    unsubscribe,
+  }
 }
 
 describe("createBookFeed", () => {
@@ -332,7 +351,10 @@ describe("createBookFeed", () => {
       throw new Error("Cannot send")
     })
     socket.open()
-    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Cannot send" })
+    expect(latest()).toMatchObject({
+      status: "Reconnecting",
+      error: "Cannot send",
+    })
     expect(onChange.mock.calls.map(([state]) => state.status)).toEqual([
       "Connecting",
       "Reconnecting",
@@ -343,20 +365,26 @@ describe("createBookFeed", () => {
   it.each([
     { random: 0, delays: [500, 1000, 2000, 4000, 8000, 15_000, 15_000] },
     { random: 0.998, delays: [999, 1998, 3996, 7992, 15_984, 29_970, 29_970] },
-  ])("increases retry delays and continues at the cap (jitter $random)", ({ random, delays }) => {
-    const { sockets, createSocket, latest } = setup(false, vi.fn(() => random))
-    for (const delay of delays) {
-      const count = sockets.length
-      sockets.at(-1)!.error()
-      expect(latest().status).toBe("Reconnecting")
-      expect(vi.getTimerCount()).toBe(1)
-      vi.advanceTimersByTime(delay - 1)
-      expect(createSocket).toHaveBeenCalledTimes(count)
-      vi.advanceTimersByTime(1)
-      expect(createSocket).toHaveBeenCalledTimes(count + 1)
-      expect(latest().status).toBe("Connecting")
-    }
-  })
+  ])(
+    "increases retry delays and continues at the cap (jitter $random)",
+    ({ random, delays }) => {
+      const { sockets, createSocket, latest } = setup(
+        false,
+        vi.fn(() => random),
+      )
+      for (const delay of delays) {
+        const count = sockets.length
+        sockets.at(-1)!.error()
+        expect(latest().status).toBe("Reconnecting")
+        expect(vi.getTimerCount()).toBe(1)
+        vi.advanceTimersByTime(delay - 1)
+        expect(createSocket).toHaveBeenCalledTimes(count)
+        vi.advanceTimersByTime(1)
+        expect(createSocket).toHaveBeenCalledTimes(count + 1)
+        expect(latest().status).toBe("Connecting")
+      }
+    },
+  )
 
   it.each([
     [0, 500],
@@ -384,7 +412,7 @@ describe("createBookFeed", () => {
     expect(vi.getTimerCount()).toBe(1)
     vi.advanceTimersByTime(500)
     expect(createSocket).toHaveBeenCalledTimes(2)
-    expect(vi.getTimerCount()).toBe(1) // Connection deadline for the new attempt.
+    expect(vi.getTimerCount()).toBe(1)
   })
 
   it.each(["construction", "send", "close", "message"])(
@@ -416,7 +444,11 @@ describe("createBookFeed", () => {
       expect(replacement.send).toHaveBeenCalledTimes(1)
       replacement.message(snapshotMessage)
       replacement.message(heartbeatMessage)
-      expect(latest()).toMatchObject({ status: "Live", isStale: false, error: null })
+      expect(latest()).toMatchObject({
+        status: "Live",
+        isStale: false,
+        error: null,
+      })
     },
   )
 
@@ -443,14 +475,25 @@ describe("createBookFeed", () => {
       expect(latest().receivedAt).toBe(previous.receivedAt)
 
       now.mockReturnValue(2000)
-      const freshSnapshot = { ...snapshotMessage, bids: [["99", "4"]], asks: [] }
-      replacement.message(first === "snapshot" ? freshSnapshot : heartbeatMessage)
+      const freshSnapshot = {
+        ...snapshotMessage,
+        bids: [["99", "4"]],
+        asks: [],
+      }
+      replacement.message(
+        first === "snapshot" ? freshSnapshot : heartbeatMessage,
+      )
       expect(latest()).toMatchObject({ status: "Synchronising", isStale: true })
       expect(latest().view).toBe(previous.view)
       expect(latest().receivedAt).toBe(previous.receivedAt)
-      replacement.message(first === "snapshot" ? heartbeatMessage : freshSnapshot)
+      replacement.message(
+        first === "snapshot" ? heartbeatMessage : freshSnapshot,
+      )
       expect(latest()).toMatchObject({
-        status: "Live", isStale: false, receivedAt: 2000, error: null,
+        status: "Live",
+        isStale: false,
+        receivedAt: 2000,
+        error: null,
       })
       expect(latest().view.bids.map(({ price }) => price)).toEqual(["99"])
       expect(latest().view.asks).toEqual([])
@@ -489,8 +532,15 @@ describe("createBookFeed", () => {
       const receipts = now.mock.calls.length
       const timers = vi.getTimerCount()
       onopen!(new Event("open"))
-      for (const message of [snapshotMessage, updateMessage, heartbeatMessage, errorMessage]) {
-        onmessage!(new MessageEvent("message", { data: JSON.stringify(message) }))
+      for (const message of [
+        snapshotMessage,
+        updateMessage,
+        heartbeatMessage,
+        errorMessage,
+      ]) {
+        onmessage!(
+          new MessageEvent("message", { data: JSON.stringify(message) }),
+        )
       }
       onerror!(new Event("error"))
       onclose!({ code: 1006, reason: "" } as CloseEvent)
@@ -518,7 +568,7 @@ describe("createBookFeed", () => {
     const second = sockets[1]
     second.open()
     second.message(snapshotMessage)
-    vi.advanceTimersByTime(4000) // Synchronising time does not count.
+    vi.advanceTimersByTime(4000)
     second.message(heartbeatMessage)
     for (let secondElapsed = 0; secondElapsed < 29; secondElapsed++) {
       vi.advanceTimersByTime(1000)
@@ -526,19 +576,19 @@ describe("createBookFeed", () => {
     }
     vi.advanceTimersByTime(999)
     second.error()
-    expect(vi.getTimerCount()).toBe(1) // Only the retry; the healthy timer is cancelled.
+    expect(vi.getTimerCount()).toBe(1)
     vi.advanceTimersByTime(999)
     expect(createSocket).toHaveBeenCalledTimes(2)
     vi.advanceTimersByTime(1)
     const third = sockets[2]
     third.open()
     third.message(heartbeatMessage)
-    vi.advanceTimersByTime(4000) // Heartbeat alone does not count either.
+    vi.advanceTimersByTime(4000)
     third.message(heartbeatMessage)
     third.message(snapshotMessage)
     for (let secondElapsed = 0; secondElapsed < 30; secondElapsed++) {
       vi.advanceTimersByTime(1000)
-      third.message(heartbeatMessage) // Further messages do not restart the timer.
+      third.message(heartbeatMessage)
       third.message(updateMessage)
     }
     third.error()
@@ -580,7 +630,10 @@ describe("createBookFeed", () => {
     expect(latest().status).toBe("Live")
     vi.advanceTimersByTime(1)
     expect(latest()).toEqual({
-      ...previous, status: "Reconnecting", isStale: true, error: "Coinbase heartbeat timed out",
+      ...previous,
+      status: "Reconnecting",
+      isStale: true,
+      error: "Coinbase heartbeat timed out",
     })
     expect(socket.close).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(1)
@@ -599,7 +652,10 @@ describe("createBookFeed", () => {
     vi.advanceTimersByTime(9999)
     expect(latest().status).toBe("Connecting")
     vi.advanceTimersByTime(1)
-    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Coinbase connection timed out" })
+    expect(latest()).toMatchObject({
+      status: "Reconnecting",
+      error: "Coinbase connection timed out",
+    })
     lateOpen(new Event("open"))
     expect(socket.send).not.toHaveBeenCalled()
     vi.advanceTimersByTime(500)
@@ -616,7 +672,10 @@ describe("createBookFeed", () => {
     }
     expect(latest().status).toBe("Synchronising")
     vi.advanceTimersByTime(1000)
-    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Coinbase synchronisation timed out" })
+    expect(latest()).toMatchObject({
+      status: "Reconnecting",
+      error: "Coinbase synchronisation timed out",
+    })
   })
 
   it("requires the first heartbeat even when a snapshot arrives", () => {
@@ -624,13 +683,17 @@ describe("createBookFeed", () => {
     socket.open()
     socket.message(snapshotMessage)
     vi.advanceTimersByTime(5000)
-    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Coinbase heartbeat timed out" })
+    expect(latest()).toMatchObject({
+      status: "Reconnecting",
+      error: "Coinbase heartbeat timed out",
+    })
   })
 
   it.each(["connecting", "synchronising", "live", "retry"])(
     "pauses recovery offline while %s and handles repeated browser events once",
     (phase) => {
-      const { socket, sockets, events, latest, onChange, createSocket } = setup()
+      const { socket, sockets, events, latest, onChange, createSocket } =
+        setup()
       if (phase === "synchronising" || phase === "live") socket.open()
       if (phase === "live") {
         socket.message(snapshotMessage)
@@ -639,7 +702,11 @@ describe("createBookFeed", () => {
       if (phase === "retry") socket.error()
       const previous = latest()
       events.offline()
-      expect(latest()).toMatchObject({ status: "Reconnecting", isStale: true, error: "Browser is offline" })
+      expect(latest()).toMatchObject({
+        status: "Reconnecting",
+        isStale: true,
+        error: "Browser is offline",
+      })
       expect(latest().view).toBe(previous.view)
       const count = onChange.mock.calls.length
       events.offline()
@@ -666,8 +733,15 @@ describe("createBookFeed", () => {
   )
 
   it("waits for online when created offline", () => {
-    const { createSocket, events, latest, dispose, unsubscribe } = setup(false, vi.fn(() => 0), false)
-    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Browser is offline" })
+    const { createSocket, events, latest, dispose, unsubscribe } = setup(
+      false,
+      vi.fn(() => 0),
+      false,
+    )
+    expect(latest()).toMatchObject({
+      status: "Reconnecting",
+      error: "Browser is offline",
+    })
     expect(createSocket).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
     events.offline()
@@ -688,27 +762,36 @@ describe("createBookFeed", () => {
       socket.message(snapshotMessage)
       socket.message(heartbeatMessage)
       const previous = latest()
-      // Advance elapsed time without running any queued timers.
       monotonicNow.mockReturnValue(performance.now() + 5000)
       if (event === "visible") events.visible()
       else if (event === "online") events.online()
-      else socket.message(event === "heartbeat" ? heartbeatMessage : updateMessage)
-      expect(latest()).toMatchObject({ status: "Reconnecting", isStale: true, error: "Coinbase heartbeat timed out" })
+      else
+        socket.message(event === "heartbeat" ? heartbeatMessage : updateMessage)
+      expect(latest()).toMatchObject({
+        status: "Reconnecting",
+        isStale: true,
+        error: "Coinbase heartbeat timed out",
+      })
       expect(latest().view).toBe(previous.view)
       expect(vi.getTimerCount()).toBe(1)
     },
   )
 
-  it.each([false, true])("checks an expired phase deadline on visibility return (open: %s)", (open) => {
-    const { socket, monotonicNow, latest, events } = setup()
-    if (open) socket.open()
-    monotonicNow.mockReturnValue(performance.now() + 10_000)
-    events.visible()
-    expect(latest()).toMatchObject({
-      status: "Reconnecting",
-      error: open ? "Coinbase synchronisation timed out" : "Coinbase connection timed out",
-    })
-  })
+  it.each([false, true])(
+    "checks an expired phase deadline on visibility return (open: %s)",
+    (open) => {
+      const { socket, monotonicNow, latest, events } = setup()
+      if (open) socket.open()
+      monotonicNow.mockReturnValue(performance.now() + 10_000)
+      events.visible()
+      expect(latest()).toMatchObject({
+        status: "Reconnecting",
+        error: open
+          ? "Coinbase synchronisation timed out"
+          : "Coinbase connection timed out",
+      })
+    },
+  )
 
   it("does not reconnect on visibility return while heartbeats are fresh or wall time changes", () => {
     const { socket, events, latest, now, createSocket } = setup()

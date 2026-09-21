@@ -10,7 +10,10 @@ export type FeedLifecycle = {
 }
 
 export const browserLifecycle: FeedLifecycle = {
-  isOnline: () => typeof navigator === "undefined" || navigator.onLine !== false,
+  isOnline() {
+    return typeof navigator === "undefined" || navigator.onLine !== false
+  },
+
   subscribe({ offline, online, visible }) {
     if (typeof window === "undefined") return () => {}
     const visibilityChanged = () => {
