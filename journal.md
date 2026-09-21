@@ -115,7 +115,7 @@ The outline of the dashboard has been set. From top to bottom:
   - some cool features here: the table itself has accessibility features like declaring the scope of table info.
   - The dimensions of the table are fixed. This means that even if the orderbook size falls short and there are less than 10 entries on either side, the table will not shrink or change size. Stable dimensions means less strain on the eyes and easier comparisons.
     - Currently not a fan of the layout. It looks nice enough but I would prefer it to be more functional, meaning the gap between the tables will be removed in the future. Will have the two tables sit closer together with an easier way to compare the bids vs the asks. Right now, the eye has to move quite far to make these comparisons. May also switch the order of the headers around to make it symmetrical, e.g., price quantity | quantity price. This is dependant on which header I think makes the best comparison. May even make a 'volume' header the focal point - I'll need to make a new derived value in my orderbook logic that calculates this.
-    - Some ideas for now: highest volume in the available sorted data will be represented by a bar that takes the whole width of the table. Subsequent bids / asks will have shrinking bars proportional to their volume. This way, can see the distribution of bids and asks at a glance by seeing the shape of the data.
+    - TODO: Consider layout - highest volume in the available sorted data will be represented by a bar that takes the whole width of the table. Subsequent bids / asks will have shrinking bars proportional to their volume. This way, can see the distribution of bids and asks at a glance by seeing the shape of the data.
     - Also want to experiment with table lines. There aren't many now but will assess how clear it is to view the data vs how cluttered it would look with row and column separators
 - section 5, the final section, will just show the most recent receipt label so we have a timestamp for when the application last received data
 
@@ -245,9 +245,9 @@ New methods:
   - Finally, if a visible event is triggered, we just check the health of the page. Will likely update this in the future to disconnect from the websocket after 5 seconds of a hidden event
 - if we're not online, we update the state to reconnecting
 
-review:
+TODO:
 
-- do we need 'receivedAt' that lives inside the BookFeedState? Everytime it is being updated, the time being computed is also being passed into createBookView({bookSnapshot, time}), so we're passing computed time into two separate places. In the bookview it makes sense since we produce a receipt label but the receivedAt key in the book feed state isn't being used anywhere.
+- review if we need 'receivedAt' that lives inside the BookFeedState? Everytime it is being updated, the time being computed is also being passed into createBookView({bookSnapshot, time}), so we're passing computed time into two separate places. In the bookview it makes sense since we produce a receipt label but the receivedAt key in the book feed state isn't being used anywhere.
 
 ### step 11
 
