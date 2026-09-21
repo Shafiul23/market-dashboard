@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createBookFeed } from "./bookFeed"
 import type { BookFeedState } from "./bookFeed"
+import type { FeedLifecycle } from "./browserLifecycle"
 import { FakeSocket } from "./fakeSocket"
 import {
   errorMessage,
@@ -17,7 +18,7 @@ function logFlow(...args: unknown[]) {
   if (LOG_DATA_FLOW) console.log(...args)
 }
 
-function setup(trace = false, random = vi.fn(() => 0)) {
+function setup(trace = false, random = vi.fn(() => 0), initiallyOnline = true) {
   const sockets: FakeSocket[] = []
   const createSocket = vi.fn(() => {
     const socket = new FakeSocket()
@@ -25,6 +26,16 @@ function setup(trace = false, random = vi.fn(() => 0)) {
     return socket
   })
   const now = vi.fn(() => 1000)
+  const monotonicNow = vi.fn(() => performance.now())
+  let events!: Parameters<FeedLifecycle["subscribe"]>[0]
+  const unsubscribe = vi.fn()
+  const lifecycle: FeedLifecycle = {
+    isOnline: () => initiallyOnline,
+    subscribe: (handlers) => {
+      events = handlers
+      return unsubscribe
+    },
+  }
   const onChange = vi.fn<(state: BookFeedState) => void>((state) => {
     if (!trace) return
     logFlow(
@@ -38,7 +49,7 @@ function setup(trace = false, random = vi.fn(() => 0)) {
       }),
     )
   })
-  const dispose = createBookFeed({ createSocket, now, random, onChange })
+  const dispose = createBookFeed({ createSocket, now, monotonicNow, random, onChange, lifecycle })
   const socket = sockets[0]
   if (trace) {
     socket.send.mockImplementation((data) => {
@@ -46,7 +57,7 @@ function setup(trace = false, random = vi.fn(() => 0)) {
     })
   }
   const latest = () => onChange.mock.calls.at(-1)![0]
-  return { socket, sockets, createSocket, now, random, onChange, dispose, latest }
+  return { socket, sockets, createSocket, now, monotonicNow, random, onChange, dispose, latest, events, unsubscribe }
 }
 
 describe("createBookFeed", () => {
@@ -166,13 +177,16 @@ describe("createBookFeed", () => {
     socket.open()
     socket.message(snapshotMessage)
     socket.message(updateMessage)
-    expect(latest().view.bids[0].quantity).toBe("3.00000000")
+    expect(latest().view.bids).toEqual([])
     expect(latest().status).toBe("Synchronising")
+    socket.message(heartbeatMessage)
+    expect(latest().view.bids[0].quantity).toBe("3.00000000")
   })
 
   it("replaces the entire book on a fresh snapshot", () => {
     const { socket, now, latest } = setup()
     socket.open()
+    socket.message(heartbeatMessage)
     socket.message(snapshotMessage)
     socket.message(updateMessage)
     now.mockReturnValue(2000)
@@ -370,7 +384,7 @@ describe("createBookFeed", () => {
     expect(vi.getTimerCount()).toBe(1)
     vi.advanceTimersByTime(500)
     expect(createSocket).toHaveBeenCalledTimes(2)
-    expect(vi.getTimerCount()).toBe(0)
+    expect(vi.getTimerCount()).toBe(1) // Connection deadline for the new attempt.
   })
 
   it.each(["construction", "send", "close", "message"])(
@@ -432,6 +446,8 @@ describe("createBookFeed", () => {
       const freshSnapshot = { ...snapshotMessage, bids: [["99", "4"]], asks: [] }
       replacement.message(first === "snapshot" ? freshSnapshot : heartbeatMessage)
       expect(latest()).toMatchObject({ status: "Synchronising", isStale: true })
+      expect(latest().view).toBe(previous.view)
+      expect(latest().receivedAt).toBe(previous.receivedAt)
       replacement.message(first === "snapshot" ? heartbeatMessage : freshSnapshot)
       expect(latest()).toMatchObject({
         status: "Live", isStale: false, receivedAt: 2000, error: null,
@@ -502,9 +518,13 @@ describe("createBookFeed", () => {
     const second = sockets[1]
     second.open()
     second.message(snapshotMessage)
-    vi.advanceTimersByTime(30_000) // Synchronising time does not count.
+    vi.advanceTimersByTime(4000) // Synchronising time does not count.
     second.message(heartbeatMessage)
-    vi.advanceTimersByTime(29_999)
+    for (let secondElapsed = 0; secondElapsed < 29; secondElapsed++) {
+      vi.advanceTimersByTime(1000)
+      second.message(heartbeatMessage)
+    }
+    vi.advanceTimersByTime(999)
     second.error()
     expect(vi.getTimerCount()).toBe(1) // Only the retry; the healthy timer is cancelled.
     vi.advanceTimersByTime(999)
@@ -513,17 +533,214 @@ describe("createBookFeed", () => {
     const third = sockets[2]
     third.open()
     third.message(heartbeatMessage)
-    vi.advanceTimersByTime(30_000) // Heartbeat alone does not count either.
+    vi.advanceTimersByTime(4000) // Heartbeat alone does not count either.
+    third.message(heartbeatMessage)
     third.message(snapshotMessage)
-    vi.advanceTimersByTime(15_000)
-    third.message(heartbeatMessage) // Further messages do not restart the timer.
-    third.message(updateMessage)
-    vi.advanceTimersByTime(15_000)
+    for (let secondElapsed = 0; secondElapsed < 30; secondElapsed++) {
+      vi.advanceTimersByTime(1000)
+      third.message(heartbeatMessage) // Further messages do not restart the timer.
+      third.message(updateMessage)
+    }
     third.error()
     vi.advanceTimersByTime(499)
     expect(createSocket).toHaveBeenCalledTimes(3)
     vi.advanceTimersByTime(1)
     expect(createSocket).toHaveBeenCalledTimes(4)
+  })
+
+  it("keeps a quiet market Live on heartbeats without changing the book receipt time", () => {
+    const { socket, latest } = setup()
+    socket.open()
+    socket.message(snapshotMessage)
+    socket.message(heartbeatMessage)
+    const previous = latest()
+    for (let seconds = 0; seconds < 40; seconds++) {
+      vi.advanceTimersByTime(1000)
+      socket.message(heartbeatMessage)
+    }
+    expect(latest()).toEqual(previous)
+    expect(latest().view).toBe(previous.view)
+    expect(socket.close).not.toHaveBeenCalled()
+  })
+
+  it("recovers from missing heartbeats despite an open socket and ongoing book updates", () => {
+    const { socket, latest, sockets } = setup()
+    socket.open()
+    socket.message(snapshotMessage)
+    socket.message(heartbeatMessage)
+    for (let seconds = 0; seconds < 4; seconds++) {
+      vi.advanceTimersByTime(1000)
+      socket.message(updateMessage)
+      socket.message({ ...heartbeatMessage, product_id: "ETH-GBP" })
+      socket.message(subscriptionsMessage)
+    }
+    const previous = latest()
+    vi.advanceTimersByTime(999)
+    expect(socket.readyState).toBe(1)
+    expect(latest().status).toBe("Live")
+    vi.advanceTimersByTime(1)
+    expect(latest()).toEqual({
+      ...previous, status: "Reconnecting", isStale: true, error: "Coinbase heartbeat timed out",
+    })
+    expect(socket.close).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(1)
+    vi.advanceTimersByTime(500)
+    sockets[1].open()
+    sockets[1].message(heartbeatMessage)
+    expect(latest()).toMatchObject({ status: "Synchronising", isStale: true })
+    expect(latest().view).toBe(previous.view)
+    sockets[1].message(snapshotMessage)
+    expect(latest().status).toBe("Live")
+  })
+
+  it("times out a socket that never opens and ignores its late open", () => {
+    const { socket, latest, sockets } = setup()
+    const lateOpen = socket.onopen!
+    vi.advanceTimersByTime(9999)
+    expect(latest().status).toBe("Connecting")
+    vi.advanceTimersByTime(1)
+    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Coinbase connection timed out" })
+    lateOpen(new Event("open"))
+    expect(socket.send).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(500)
+    expect(sockets).toHaveLength(2)
+  })
+
+  it("starts the synchronisation deadline on open and requires a snapshot despite heartbeats", () => {
+    const { socket, latest } = setup()
+    vi.advanceTimersByTime(9000)
+    socket.open()
+    for (let seconds = 0; seconds < 9; seconds++) {
+      vi.advanceTimersByTime(1000)
+      socket.message(heartbeatMessage)
+    }
+    expect(latest().status).toBe("Synchronising")
+    vi.advanceTimersByTime(1000)
+    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Coinbase synchronisation timed out" })
+  })
+
+  it("requires the first heartbeat even when a snapshot arrives", () => {
+    const { socket, latest } = setup()
+    socket.open()
+    socket.message(snapshotMessage)
+    vi.advanceTimersByTime(5000)
+    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Coinbase heartbeat timed out" })
+  })
+
+  it.each(["connecting", "synchronising", "live", "retry"])(
+    "pauses recovery offline while %s and handles repeated browser events once",
+    (phase) => {
+      const { socket, sockets, events, latest, onChange, createSocket } = setup()
+      if (phase === "synchronising" || phase === "live") socket.open()
+      if (phase === "live") {
+        socket.message(snapshotMessage)
+        socket.message(heartbeatMessage)
+      }
+      if (phase === "retry") socket.error()
+      const previous = latest()
+      events.offline()
+      expect(latest()).toMatchObject({ status: "Reconnecting", isStale: true, error: "Browser is offline" })
+      expect(latest().view).toBe(previous.view)
+      const count = onChange.mock.calls.length
+      events.offline()
+      events.visible()
+      expect(onChange).toHaveBeenCalledTimes(count)
+      expect(vi.getTimerCount()).toBe(0)
+      vi.advanceTimersByTime(60_000)
+      expect(createSocket).toHaveBeenCalledTimes(1)
+      events.online()
+      events.online()
+      events.visible()
+      expect(createSocket).toHaveBeenCalledTimes(2)
+      expect(latest()).toMatchObject({ status: "Connecting", isStale: true })
+      const replacement = sockets[1]
+      replacement.open()
+      replacement.message(heartbeatMessage)
+      events.online()
+      events.visible()
+      expect(latest()).toMatchObject({ status: "Synchronising", isStale: true })
+      expect(latest().view).toBe(previous.view)
+      replacement.message(snapshotMessage)
+      expect(latest()).toMatchObject({ status: "Live", isStale: false })
+    },
+  )
+
+  it("waits for online when created offline", () => {
+    const { createSocket, events, latest, dispose, unsubscribe } = setup(false, vi.fn(() => 0), false)
+    expect(latest()).toMatchObject({ status: "Reconnecting", error: "Browser is offline" })
+    expect(createSocket).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    events.offline()
+    events.visible()
+    events.online()
+    events.online()
+    expect(createSocket).toHaveBeenCalledTimes(1)
+    dispose()
+    expect(vi.getTimerCount()).toBe(0)
+    expect(unsubscribe).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(["visible", "heartbeat", "update", "online"])(
+    "detects silence after timer suspension on %s without reviving the old book",
+    (event) => {
+      const { socket, latest, monotonicNow, events } = setup()
+      socket.open()
+      socket.message(snapshotMessage)
+      socket.message(heartbeatMessage)
+      const previous = latest()
+      // Advance elapsed time without running any queued timers.
+      monotonicNow.mockReturnValue(performance.now() + 5000)
+      if (event === "visible") events.visible()
+      else if (event === "online") events.online()
+      else socket.message(event === "heartbeat" ? heartbeatMessage : updateMessage)
+      expect(latest()).toMatchObject({ status: "Reconnecting", isStale: true, error: "Coinbase heartbeat timed out" })
+      expect(latest().view).toBe(previous.view)
+      expect(vi.getTimerCount()).toBe(1)
+    },
+  )
+
+  it.each([false, true])("checks an expired phase deadline on visibility return (open: %s)", (open) => {
+    const { socket, monotonicNow, latest, events } = setup()
+    if (open) socket.open()
+    monotonicNow.mockReturnValue(performance.now() + 10_000)
+    events.visible()
+    expect(latest()).toMatchObject({
+      status: "Reconnecting",
+      error: open ? "Coinbase synchronisation timed out" : "Coinbase connection timed out",
+    })
+  })
+
+  it("does not reconnect on visibility return while heartbeats are fresh or wall time changes", () => {
+    const { socket, events, latest, now, createSocket } = setup()
+    socket.open()
+    socket.message(snapshotMessage)
+    socket.message(heartbeatMessage)
+    for (const wallTime of [1_000_000, -1_000_000]) {
+      now.mockReturnValue(wallTime)
+      vi.setSystemTime(wallTime)
+      vi.advanceTimersByTime(1000)
+      events.visible()
+      socket.message(heartbeatMessage)
+      expect(latest()).toMatchObject({ status: "Live", receivedAt: 1000 })
+    }
+    expect(createSocket).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps the last usable book if a staged replacement fails", () => {
+    const { socket, sockets, latest } = setup()
+    socket.open()
+    socket.message(snapshotMessage)
+    socket.message(heartbeatMessage)
+    const previous = latest()
+    socket.error()
+    vi.advanceTimersByTime(500)
+    sockets[1].open()
+    sockets[1].message({ ...snapshotMessage, bids: [["99", "4"]], asks: [] })
+    sockets[1].message(updateMessage)
+    vi.advanceTimersByTime(5000)
+    expect(latest()).toMatchObject({ status: "Reconnecting", isStale: true })
+    expect(latest().view).toBe(previous.view)
+    expect(latest().receivedAt).toBe(previous.receivedAt)
   })
 
   it("cancels recovery when disposed during a retry wait", () => {
@@ -543,7 +760,7 @@ describe("createBookFeed", () => {
   it.each(["connecting", "open", "live"])(
     "disposes silently while %s and rejects captured callbacks",
     (phase) => {
-      const { socket, dispose, onChange, now } = setup()
+      const { socket, dispose, onChange, now, events, unsubscribe } = setup()
       if (phase !== "connecting") socket.open()
       if (phase === "live") {
         socket.message(snapshotMessage)
@@ -555,6 +772,7 @@ describe("createBookFeed", () => {
       const receipts = now.mock.calls.length
       dispose()
       dispose()
+      expect(unsubscribe).toHaveBeenCalledTimes(1)
       expect(socket.close).toHaveBeenCalledTimes(1)
       expect(vi.getTimerCount()).toBe(0)
       expect([
@@ -565,6 +783,9 @@ describe("createBookFeed", () => {
       ]).toEqual([null, null, null, null])
 
       return Promise.resolve().then(() => {
+        events.offline()
+        events.online()
+        events.visible()
         onopen!(new Event("open"))
         for (const message of [
           snapshotMessage,
