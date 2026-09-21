@@ -248,3 +248,13 @@ New methods:
 review:
 
 - do we need 'receivedAt' that lives inside the BookFeedState? Everytime it is being updated, the time being computed is also being passed into createBookView({bookSnapshot, time}), so we're passing computed time into two separate places. In the bookview it makes sense since we produce a receipt label but the receivedAt key in the book feed state isn't being used anywhere.
+
+### step 11
+
+In this step, we introduce a publication throttle to slightly delay how often the high volume of incoming data is displayed. Snapshots and updates still update our internal book live, but instead of publishing them to book view immediately now, we delay an incoming change for 100 ms and clump together any other updates that come through in this window. Ultimately, we're keeping a consisten internal book in real time but are batching updated together and publishing them at 100 ms intervals.
+
+- when we receive a snapshot or an update, we set a boolean 'dirty' to true. When this is true, we can call our publishBook function and call createBookView.
+- The first time we go live (live boolean = non null book and heartbeat ready) AND when our status has not been updated to 'live' yet, then we don't throttle publication, we just update the book view immediately
+- once our status HAS been updated, then every time we get a snapshot or update websocket message, we trigger the publication timer and push all the updates that accumulate in this window
+- this will throttle how often we're updating book
+  TODO: once view is setup, remove this feature, measure using react profiling tools, then measure again when reimplementing. I would like to see how this feature affects performance.

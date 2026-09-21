@@ -13,6 +13,7 @@ const HEALTHY_SESSION_MS = 30_000
 const CONNECTION_TIMEOUT_MS = 10_000
 const SYNCHRONISATION_TIMEOUT_MS = 10_000
 const HEARTBEAT_TIMEOUT_MS = 5000
+const PUBLICATION_INTERVAL_MS = 100
 
 export type FeedSocket = {
   readonly readyState: number
@@ -56,6 +57,7 @@ export function createBookFeed({
   let retryTimer: ReturnType<typeof setTimeout> | undefined
   let healthyTimer: ReturnType<typeof setTimeout> | undefined
   let watchdogTimer: ReturnType<typeof setTimeout> | undefined
+  let publicationTimer: ReturnType<typeof setTimeout> | undefined
   let online = lifecycle.isOnline()
   let interrupt: ((error: Error) => void) | undefined
   let checkHealth: (() => boolean) | undefined
@@ -84,6 +86,7 @@ export function createBookFeed({
     clearTimeout(retryTimer)
     clearTimeout(healthyTimer)
     clearTimeout(watchdogTimer)
+    clearTimeout(publicationTimer)
     unsubscribe()
     closeSocket()
   }
@@ -95,6 +98,7 @@ export function createBookFeed({
     let book: OrderBook | null = null
     let heartbeatReady = false
     let bookReceivedAt: number | null = null
+    let dirty = false
     let phaseDeadline = monotonicNow() + CONNECTION_TIMEOUT_MS
     let heartbeatDeadline = Infinity
     const isCurrent = () => !disposed && id === attemptId
@@ -104,6 +108,9 @@ export function createBookFeed({
       attemptId++
       clearTimeout(healthyTimer)
       clearTimeout(watchdogTimer)
+      clearTimeout(publicationTimer)
+      publicationTimer = undefined
+      dirty = false
       interrupt = undefined
       checkHealth = undefined
       closeSocket()
@@ -157,6 +164,18 @@ export function createBookFeed({
       )
     }
 
+    function publishBook(): void {
+      publicationTimer = undefined
+      if (!healthy() || !dirty || !book || !heartbeatReady) return
+      state = {
+        ...state,
+        view: createBookView(book, bookReceivedAt),
+        receivedAt: bookReceivedAt,
+      }
+      dirty = false
+      onChange(state)
+    }
+
     interrupt = fail
     checkHealth = healthy
     watch()
@@ -206,6 +225,7 @@ export function createBookFeed({
           case "snapshot": {
             bookReceivedAt = now()
             book = createOrderBook(message)
+            dirty = true
             break
           }
           case "l2update": {
@@ -216,6 +236,7 @@ export function createBookFeed({
             }
             bookReceivedAt = now()
             applyChanges(book, message.changes)
+            dirty = true
             break
           }
           case "heartbeat":
@@ -224,31 +245,29 @@ export function createBookFeed({
             break
         }
         const live = book !== null && heartbeatReady
-        if (live && state.status !== "Live") {
+        const becomingLive = live && state.status !== "Live"
+        if (becomingLive) {
           phaseDeadline = Infinity
           healthyTimer = setTimeout(() => {
             if (healthy()) retryCeiling = INITIAL_RETRY_MS
           }, HEALTHY_SESSION_MS)
         }
-        if (live && (message.type !== "heartbeat" || state.status !== "Live")) {
+        watch()
+        if (becomingLive) {
           state = {
             ...state,
-            view: createBookView(book!, bookReceivedAt),
-            receivedAt: bookReceivedAt,
+            status: "Live",
+            isStale: false,
+            error: null,
           }
-        }
-        watch()
-        state = {
-          ...state,
-          status: live ? "Live" : "Synchronising",
-          isStale: !live,
-          error: live ? null : state.error,
+          publishBook()
+        } else if (live && dirty && publicationTimer === undefined) {
+          publicationTimer = setTimeout(publishBook, PUBLICATION_INTERVAL_MS)
         }
       } catch (error) {
         fail(error)
         return
       }
-      onChange(state)
     }
 
     attemptSocket.onerror = () => fail(new Error("Coinbase socket error"))

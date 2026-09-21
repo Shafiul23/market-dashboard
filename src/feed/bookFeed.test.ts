@@ -165,6 +165,7 @@ describe("createBookFeed", () => {
       JSON.stringify(updateMessage),
     )
     socket.message(updateMessage)
+    vi.advanceTimersByTime(100)
     const updatedState = latest()
     expect(updatedState.receivedAt).toBe(2000)
     expect(updatedState.view.bids[0]).toMatchObject({
@@ -210,6 +211,7 @@ describe("createBookFeed", () => {
     socket.message(updateMessage)
     now.mockReturnValue(2000)
     socket.message({ ...snapshotMessage, bids: [["99", "4"]], asks: [] })
+    vi.advanceTimersByTime(100)
     expect(latest().view.bids.map(({ price }) => price)).toEqual(["99"])
     expect(latest().view.asks).toEqual([])
     expect(latest().receivedAt).toBe(2000)
@@ -223,7 +225,188 @@ describe("createBookFeed", () => {
     expect(latest().status).toBe("Live")
     now.mockReturnValue(2000)
     socket.message({ ...updateMessage, changes: [] })
+    vi.advanceTimersByTime(100)
     expect(latest().receivedAt).toBe(2000)
+  })
+
+  it("coalesces bursts across the full book into bounded, consistent views", () => {
+    const { socket, latest, onChange, now } = setup()
+    socket.open()
+    socket.message(heartbeatMessage)
+    socket.message({
+      ...snapshotMessage,
+      bids: Array.from({ length: 40 }, (_, i) => [String(100 - i), "1"]),
+      asks: Array.from({ length: 40 }, (_, i) => [String(101 + i), "1"]),
+    })
+    const initial = latest()
+    onChange.mockClear()
+
+    for (let i = 0; i < 40; i++) {
+      now.mockReturnValue(2000 + i)
+      socket.message({
+        ...updateMessage,
+        changes: [
+          ["buy", String(100 - i), String(i + 2)],
+          ["sell", String(101 + i), String(i + 3)],
+        ],
+      })
+      vi.advanceTimersByTime(1)
+    }
+    vi.advanceTimersByTime(59)
+    expect(onChange).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(latest().receivedAt).toBe(2039)
+    expect(latest().view.bids.map(({ price, quantity }) => [price, quantity]))
+      .toEqual(Array.from({ length: 10 }, (_, i) => [String(100 - i), String(i + 2)]))
+    expect(latest().view.asks.map(({ price, quantity }) => [price, quantity]))
+      .toEqual(Array.from({ length: 10 }, (_, i) => [String(101 + i), String(i + 3)]))
+
+    for (let i = 0; i < 30; i++) {
+      now.mockReturnValue(3000 + i)
+      socket.message({
+        ...updateMessage,
+        changes: [
+          ["buy", String(100 - i), "0"],
+          ["sell", String(101 + i), "0"],
+        ],
+      })
+      vi.advanceTimersByTime(2)
+    }
+    vi.advanceTimersByTime(39)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(1)
+    expect(onChange).toHaveBeenCalledTimes(2)
+    expect(latest().receivedAt).toBe(3029)
+    expect(latest().view.bids.map(({ price, quantity }) => [price, quantity]))
+      .toEqual(Array.from({ length: 10 }, (_, i) => [String(70 - i), String(i + 32)]))
+    expect(latest().view.asks.map(({ price, quantity }) => [price, quantity]))
+      .toEqual(Array.from({ length: 10 }, (_, i) => [String(131 + i), String(i + 33)]))
+
+    for (const [state] of onChange.mock.calls) {
+      const { view } = state
+      expect(view.bestBid).toBe(view.bids[0].price)
+      expect(view.bestAsk).toBe(view.asks[0].price)
+      expect(view.bestBidLabel).toBe(view.bids[0].priceLabel)
+      expect(view.bestAskLabel).toBe(view.asks[0].priceLabel)
+    }
+    expect(onChange.mock.calls[0][0].view.spreadLabel).toBe("1.00")
+    expect(latest().view.spreadLabel).toBe("61.00")
+    expect(initial.view.bids[0].quantity).toBe("1")
+    expect(initial.view.asks[0].quantity).toBe("1")
+    vi.advanceTimersByTime(1000)
+    expect(onChange).toHaveBeenCalledTimes(2)
+  })
+
+  it("dirties repeated quantities and publishes the latest receipt without delaying the flush", () => {
+    const { socket, latest, onChange, now } = setup()
+    socket.open()
+    socket.message(snapshotMessage)
+    socket.message(heartbeatMessage)
+    const previous = latest()
+    onChange.mockClear()
+    const repeated = {
+      ...updateMessage,
+      changes: [["buy", "100.00", "1.50000000"]],
+    }
+    now.mockReturnValue(2000)
+    socket.message(repeated)
+    const timers = vi.getTimerCount()
+    vi.advanceTimersByTime(90)
+    now.mockReturnValue(3000)
+    socket.message(repeated)
+    socket.message(heartbeatMessage)
+    expect(vi.getTimerCount()).toBe(timers)
+    vi.advanceTimersByTime(9)
+    expect(onChange).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(latest().receivedAt).toBe(3000)
+    expect(latest().view.receiptLabel).not.toBe(previous.view.receiptLabel)
+    expect(latest().view.bids).toEqual(previous.view.bids)
+    expect(latest().view.asks).toEqual(previous.view.asks)
+    expect(vi.getTimerCount()).toBe(timers - 1)
+  })
+
+  it.each(["error", "close", "offline", "invalid", "dispose"])(
+    "cancels a pending publication immediately on %s",
+    (event) => {
+      const { socket, latest, onChange, now, events, dispose } = setup()
+      socket.open()
+      socket.message(snapshotMessage)
+      socket.message(heartbeatMessage)
+      const previous = latest()
+      now.mockReturnValue(2000)
+      socket.message(updateMessage)
+      vi.advanceTimersByTime(50)
+      onChange.mockClear()
+      if (event === "error") socket.error()
+      else if (event === "close") socket.serverClose()
+      else if (event === "offline") events.offline()
+      else if (event === "invalid") socket.message(errorMessage)
+      else dispose()
+
+      if (event === "dispose") {
+        expect(onChange).not.toHaveBeenCalled()
+      } else {
+        expect(onChange).toHaveBeenCalledTimes(1)
+        expect(latest()).toMatchObject({
+          status: "Reconnecting",
+          isStale: true,
+          receivedAt: previous.receivedAt,
+        })
+        expect(latest().view).toBe(previous.view)
+      }
+      const count = onChange.mock.calls.length
+      expect(vi.getTimerCount()).toBe(event === "offline" || event === "dispose" ? 0 : 1)
+      vi.advanceTimersByTime(100)
+      expect(onChange).toHaveBeenCalledTimes(count)
+    },
+  )
+
+  it("checks health before a delayed flush after timer suspension", () => {
+    const { socket, latest, onChange, monotonicNow } = setup()
+    socket.open()
+    socket.message(snapshotMessage)
+    socket.message(heartbeatMessage)
+    const previous = latest()
+    socket.message(updateMessage)
+    onChange.mockClear()
+    monotonicNow.mockReturnValue(performance.now() + 5000)
+    vi.advanceTimersByTime(100)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(latest()).toMatchObject({
+      status: "Reconnecting",
+      isStale: true,
+      receivedAt: previous.receivedAt,
+      error: "Coinbase heartbeat timed out",
+    })
+    expect(latest().view).toBe(previous.view)
+    expect(vi.getTimerCount()).toBe(1)
+  })
+
+  it("publishes heartbeat expiry between flushes without publishing the pending book", () => {
+    const { socket, latest, onChange } = setup()
+    socket.open()
+    socket.message(snapshotMessage)
+    socket.message(heartbeatMessage)
+    const previous = latest()
+    vi.advanceTimersByTime(4950)
+    socket.message(updateMessage)
+    onChange.mockClear()
+    vi.advanceTimersByTime(49)
+    expect(onChange).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(latest()).toMatchObject({
+      status: "Reconnecting",
+      isStale: true,
+      error: "Coinbase heartbeat timed out",
+    })
+    expect(latest().view).toBe(previous.view)
+    vi.advanceTimersByTime(50)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(1)
   })
 
   it.each([false, true])(
@@ -599,17 +782,19 @@ describe("createBookFeed", () => {
   })
 
   it("keeps a quiet market Live on heartbeats without changing the book receipt time", () => {
-    const { socket, latest } = setup()
+    const { socket, latest, onChange } = setup()
     socket.open()
     socket.message(snapshotMessage)
     socket.message(heartbeatMessage)
     const previous = latest()
+    const count = onChange.mock.calls.length
     for (let seconds = 0; seconds < 40; seconds++) {
       vi.advanceTimersByTime(1000)
       socket.message(heartbeatMessage)
     }
     expect(latest()).toEqual(previous)
     expect(latest().view).toBe(previous.view)
+    expect(onChange).toHaveBeenCalledTimes(count)
     expect(socket.close).not.toHaveBeenCalled()
   })
 
@@ -624,8 +809,8 @@ describe("createBookFeed", () => {
       socket.message({ ...heartbeatMessage, product_id: "ETH-GBP" })
       socket.message(subscriptionsMessage)
     }
-    const previous = latest()
     vi.advanceTimersByTime(999)
+    const previous = latest()
     expect(socket.readyState).toBe(1)
     expect(latest().status).toBe("Live")
     vi.advanceTimersByTime(1)
