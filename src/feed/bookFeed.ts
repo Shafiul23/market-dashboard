@@ -26,7 +26,7 @@ export type FeedSocket = {
 }
 
 export type BookFeedState = Readonly<{
-  status: "Connecting" | "Synchronising" | "Live" | "Reconnecting"
+  status: "Stopped" | "Connecting" | "Synchronising" | "Live" | "Reconnecting"
   view: BookView
   isStale: boolean
   receivedAt: number | null

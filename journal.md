@@ -259,7 +259,7 @@ In this step, we introduce a publication throttle to slightly delay how often th
 - this will throttle how often we're updating book
   TODO: once view is setup, remove this feature, measure using react profiling tools, then measure again when reimplementing. I would like to see how this feature affects performance.
 
-## step 12
+### step 12
 
 In this step, we wire up the controller to the dashboard view. Shuffled some things around by extracting a Dashboard.tsx but ultimately, we can now view the actual order book we have created.
 
@@ -267,3 +267,9 @@ In this step, we wire up the controller to the dashboard view. Shuffled some thi
 - The meat of this change comes from the new useOrderBook hook. Here, we setup a callback to the createBookFeed function inside a useEffect with an empty dependency array. On the effects setup, the createBookFeed function is called and the controller is set up.
   - this creates the state object which is handled by the useState hook inside useOrderBook.ts, and is reponsible for all the data that is pulled out of the state object to feed to the components, as well as updating it.
 - On desync, we call what was returned by the createBookFeed function, the dispose function - closing the websocket connection.
+
+#### 12a
+
+- There was no way to interact with the browser to stop the streaming. Even stopping the vite server did not stop the websocket data streaming in and updating the dashboard. This is because the vite server only helps code changes reach the browser - once the coinbase connection was set up and the browser could perform all the computations needed, it didn't need any input from the vite server. Only a refresh would stop the data streaming.
+- Decided to add a button that toggles the useOrderBook hook. This way, users can start and stop the order book. In the useEffect, the body sets up the controller and the return function calls the dispose() method.
+- Added a new status 'Stopped' to show that the connection was intentionally stopped. This way, could tighten up the type of the useOrderBook hook. Instead of it returning a wild, untyped object we just added 'stopped' to the allowed list of statuses and made the return type have a shape to follow.

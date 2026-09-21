@@ -1,5 +1,6 @@
 import type { BookView } from "../book/bookView"
 import { DataFreshness } from "./atoms/DataFreshness"
+import { OrderBookToggle } from "./atoms/OrderBookToggle"
 import { ReceiptTime } from "./atoms/ReceiptTime"
 import { MarketHeader } from "./organisms/MarketHeader"
 import { MarketOverview } from "./organisms/MarketOverview"
@@ -10,9 +11,17 @@ type DashboardProps = {
   view: BookView
   connectionLabel: string
   isStale: boolean
+  enabled?: boolean
+  onToggle?: () => void
 }
 
-export function Dashboard({ view, connectionLabel, isStale }: DashboardProps) {
+export function Dashboard({
+  view,
+  connectionLabel,
+  isStale,
+  enabled = false,
+  onToggle,
+}: DashboardProps) {
   const isWaiting =
     view.receiptLabel === PLACEHOLDER &&
     view.bids.length === 0 &&
@@ -22,6 +31,8 @@ export function Dashboard({ view, connectionLabel, isStale }: DashboardProps) {
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-5xl space-y-8">
         <MarketHeader connectionLabel={connectionLabel} />
+
+        {onToggle && <OrderBookToggle enabled={enabled} onClick={onToggle} />}
 
         <DataFreshness isStale={isStale} isWaiting={isWaiting} />
 

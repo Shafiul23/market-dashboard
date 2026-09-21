@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react"
 import { createBookFeed, initialBookFeedState } from "../feed/bookFeed"
+import type { BookFeedState } from "../feed/bookFeed"
 
-export function useOrderBook() {
+export function useOrderBook(enabled: boolean): BookFeedState {
   const [state, setState] = useState(initialBookFeedState)
 
-  // Each effect owns one controller; its disposer also guards late callbacks.
-  useEffect(() => createBookFeed({ onChange: setState }), [])
+  useEffect(() => {
+    if (!enabled) return
+    return createBookFeed({ onChange: setState })
+  }, [enabled])
 
-  return state
+  return enabled ? state : { ...state, status: "Stopped", isStale: true }
 }
