@@ -36,7 +36,9 @@ function setup() {
 }
 
 function expectStatus(label: string) {
-  expect(screen.getByRole("status").textContent).toBe(`Connection: ${label}`)
+  expect(
+    within(screen.getByRole("status")).getByText(`Connection: ${label}`),
+  ).toBeTruthy()
 }
 
 function rows(side: "Bids" | "Asks") {

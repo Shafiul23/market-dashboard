@@ -1,16 +1,18 @@
 type FeedStatusProps = {
   connectionLabel: string
+  error?: string | null
 }
 
-export function FeedStatus({ connectionLabel }: FeedStatusProps) {
+export function FeedStatus({ connectionLabel, error }: FeedStatusProps) {
   return (
-    <p
+    <div
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className="text-sm text-slate-300"
+      className="min-w-0 text-sm text-slate-300 sm:max-w-sm"
     >
-      Connection: {connectionLabel}
-    </p>
+      <p>Connection: {connectionLabel}</p>
+      {error && <p className="mt-1 wrap-anywhere text-amber-200">{error}</p>}
+    </div>
   )
 }

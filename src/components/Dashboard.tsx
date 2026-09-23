@@ -10,6 +10,7 @@ import { PLACEHOLDER } from "../lib/format"
 type DashboardProps = {
   view: BookView
   connectionLabel: string
+  error?: string | null
   isStale: boolean
   enabled?: boolean
   onToggle?: () => void
@@ -18,6 +19,7 @@ type DashboardProps = {
 export function Dashboard({
   view,
   connectionLabel,
+  error,
   isStale,
   enabled = false,
   onToggle,
@@ -30,7 +32,7 @@ export function Dashboard({
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-5xl space-y-8">
-        <MarketHeader connectionLabel={connectionLabel} />
+        <MarketHeader connectionLabel={connectionLabel} error={error} />
 
         {onToggle && <OrderBookToggle enabled={enabled} onClick={onToggle} />}
 
