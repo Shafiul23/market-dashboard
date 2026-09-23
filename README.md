@@ -1,44 +1,76 @@
 # Market Dashboard
 
-A minimal React + TypeScript app built with Vite and Tailwind CSS.
+A React + TypeScript order book for Coinbase BTC-GBP, built with Vite and Tailwind
+CSS. Prices are in GBP and quantities in BTC. Press **Start order book** to connect;
+loading the page alone does not open the market feed.
 
-Use Node.js 24 and npm. Run these commands from the project directory:
+## Development
 
-- `npm ci` — install the dependencies from the npm lockfile.
-- `npm run dev` — start the development server; open the URL printed in the terminal.
-- `npm run lint` — run ESLint.
-- `npm test` — run unit and integration tests once.
-- `npm run test:watch` — rerun tests as files change.
-- `npm run build` — check TypeScript and create a production build in `dist/`.
-- `npm run preview` — serve the production build locally after building.
+Use Node.js 24 and npm. Run commands from the project directory:
 
-To inspect the layout with sample data, run `npm run dev` and open
-`/fixtures.html` on the local URL printed by Vite. Use the selector to review
-populated, waiting, short-book, stale, empty-bid, and larger-value states.
-Resize the browser to check desktop and stacked layouts. The fixture page uses
-the same `createOrderBook` → `createBookView` → `Dashboard` path as real data.
-Edit `src/dev/FixturePreview.tsx` to try different prices and quantities. This separate
-preview entry is excluded from the production build.
+| Command                        | Purpose                                                         |
+| ------------------------------ | --------------------------------------------------------------- |
+| `npm ci`                       | Install the dependencies from the lockfile.                     |
+| `npm run dev`                  | Start the development server.                                   |
+| `npm run lint`                 | Run ESLint.                                                     |
+| `npm test`                     | Run unit and integration tests once, using fake sockets.        |
+| `npm run test:watch`           | Rerun tests as files change.                                    |
+| `npm test -- src/App.test.tsx` | Run the dashboard acceptance tests only.                        |
+| `npm run build`                | Check TypeScript and build production files in `dist/`.         |
+| `npm run preview`              | Serve the last production build locally; rebuild after changes. |
 
-## Dashboard acceptance checks
+For layout checks without an exchange connection, open `/fixtures.html` on the
+**development** server. The selector covers populated, waiting, short-book, stale,
+empty-bid and larger-value states. Fixtures share the real
+`createOrderBook` → `createBookView` → `Dashboard` path. Edit
+`src/dev/FixturePreview.tsx` to try other sample values. This entry is excluded
+from the production build.
 
-Run `npm test -- src/App.test.tsx` for page-level acceptance tests. They render
-the real app, hook and feed controller with `FakeSocket` replacing WebSocket;
-no exchange connection is opened. They cover loading to Live, sorted top ten,
-add/replace/remove and level promotion, three kinds of interruption, stale
+## Data flow and recovery
+
+`App` owns the Start/Stop control. `useOrderBook` starts and disposes the feed
+controller. The controller decodes Coinbase messages, maintains the full order
+book outside React, and publishes formatted top-ten views to the dashboard.
+Decimal arithmetic uses `big.js`; price and quantity values remain decimal
+strings. Headlines and table rows come from the same published view.
+
+Opening a connection moves from Connecting to Synchronising. Live requires both
+a snapshot and a heartbeat from that attempt. Subsequent book changes are
+coalesced into 100ms publication windows; connection failures are reported
+immediately. The receipt label is the local receipt time of the last accepted
+book message, displayed in UTC. Heartbeats do not advance it, and it is not an
+exchange timestamp or a latency measurement.
+
+A detected failure marks the last published values stale. Recovery creates a new
+book from a new snapshot before returning to Live. Retry delays use jitter and
+an exponentially increasing ceiling from 1s to 30s (each delay is 50–100% of its
+ceiling); 30 uninterrupted seconds Live reset the ceiling. Connection and
+synchronisation deadlines are 10s, with a separate 5s heartbeat deadline.
+Browser scheduling can delay timer execution. Offline events close the feed and
+pause retries; an online event resumes connection attempts. Returning to a visible
+tab checks whether the current attempt has expired. Stop disposes the controller
+and keeps the last visible values marked stale.
+
+## Validation and limits
+
+Unit tests cover decimal arithmetic, book updates, view formatting, protocol
+validation and feed/lifecycle rules. `src/App.test.tsx` renders the real app, hook
+and controller with `FakeSocket` replacing WebSocket. It covers loading to Live,
+sorted top ten, add/replace/remove and depth promotion, interruptions, stale
 recovery, replacement snapshots, empty sides, receipt time and stopping.
-The current app connects only after **Start order book** is pressed.
 
-Unit tests check individual book/feed rules; these integration tests check their
-visible result together. The DOM checks protect the single polite connection
-live region and keep routine prices outside it. Neither proves browser layout,
-spoken announcements or real network recovery.
+DOM tests protect the polite connection live region and check that routine price
+updates do not mutate it. They do not establish spoken screen-reader behavior,
+browser layout, real network recovery or sustained performance.
 
-Manual checks (run live-feed checks yourself):
+Before demonstrating the project, run `npm test`, `npm run lint` and
+`npm run build`, then use `npm run preview` for a live check:
 
-| Check             | Procedure and expected result                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Layout            | Open `/fixtures.html`; inspect every scenario at desktop width, 320px narrow mobile and actual browser zoom of 200%. Prices, quantities, stale text and receipt time must remain readable without horizontal page scrolling.                                                                                                                                                                                                                                                                     |
-| Screen reader     | With VoiceOver or NVDA running, use the fixture selector to switch Waiting → Populated → Stale. Listen for connection changes. Navigate both named tables and their GBP/BTC column headers. On the real page, start the book and leave focus away from prices: routine price and receipt updates must not produce live announcements.                                                                                                                                                            |
-| Real interruption | On `/`, start the book and wait for Live. In DevTools Network, inspect the feed WebSocket's messages. Disable the active network connection (including any alternative connection) or use a network blocker that terminates existing connections. Confirm incoming heartbeats/updates cease and the socket closes or the app's heartbeat watchdog retires it. DevTools Offline alone is not proof that the socket stopped. Expect Reconnecting, stale values and a frozen last-book-update time. |
-| Recovery          | Restore connectivity without reloading or pressing Start. Observe a new feed connection and a new `snapshot` message; opening the socket or receiving a heartbeat alone must not restore Live. Once the snapshot and heartbeat have both arrived, expect Live, fresh values and a new receipt time. Record the message order and observed transitions.                                                                                                                                           |
+- Confirm one active market connection, sorted prices and matching headlines.
+- Leave it running for a short session; compare responsiveness and memory trends
+  near the start and end. Fifteen minutes is an optional observation window.
+- Interrupt actual connectivity, verify incoming feed messages cease, and restore
+  it. Expect stale values followed by a new connection, snapshot and Live state.
+  DevTools Offline alone does not prove an existing WebSocket stopped.
+- Inspect desktop, 320px mobile and actual 200% browser zoom. With a screen reader,
+  check connection announcements and quiet routine price updates.
