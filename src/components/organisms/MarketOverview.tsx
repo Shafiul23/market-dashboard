@@ -15,7 +15,7 @@ export function MarketOverview({ view, isWaiting }: MarketOverviewProps) {
       <h2 id="overview-heading" className="text-lg font-semibold">
         Market overview
       </h2>
-      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+      <dl className="mt-4 grid gap-3 md:grid-cols-3">
         {[
           { label: "Best bid", value: view.bestBidLabel },
           { label: "Best ask", value: view.bestAskLabel },

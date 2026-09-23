@@ -59,7 +59,7 @@ export default function FixturePreview() {
       <Dashboard
         view={view}
         connectionLabel={
-          isWaiting ? "Connecting" : isStale ? "Reconnecting" : "Connected"
+          isWaiting ? "Connecting" : isStale ? "Reconnecting" : "Live"
         }
         isStale={isStale}
       />
