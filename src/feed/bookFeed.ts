@@ -26,7 +26,7 @@ export type FeedSocket = {
 }
 
 export type BookFeedState = Readonly<{
-  status: "Stopped" | "Connecting" | "Synchronising" | "Live" | "Reconnecting"
+  status: "Stopped" | "Suspended" | "Connecting" | "Synchronising" | "Live" | "Reconnecting"
   view: BookView
   isStale: boolean
   receivedAt: number | null
@@ -67,6 +67,7 @@ export function createBookFeed({
   let watchdogTimer: ReturnType<typeof setTimeout> | undefined
   let publicationTimer: ReturnType<typeof setTimeout> | undefined
   let online = lifecycle.isOnline()
+  let visible = lifecycle.isVisible()
   let interrupt: ((error: Error) => void) | undefined
   let checkHealth: (() => boolean) | undefined
   let state = initialBookFeedState
@@ -81,20 +82,28 @@ export function createBookFeed({
     socket = undefined
   }
 
-  function dispose(): void {
-    if (disposed) return
-    disposed = true
+  function stopAttempt(): void {
     attemptId++
     clearTimeout(retryTimer)
     clearTimeout(healthyTimer)
     clearTimeout(watchdogTimer)
     clearTimeout(publicationTimer)
-    unsubscribe()
+    retryTimer = undefined
+    publicationTimer = undefined
+    interrupt = undefined
+    checkHealth = undefined
     closeSocket()
   }
 
+  function dispose(): void {
+    if (disposed) return
+    disposed = true
+    unsubscribe()
+    stopAttempt()
+  }
+
   function connect(): void {
-    if (disposed || !online) return
+    if (disposed || !online || !visible) return
     const id = ++attemptId
     let opened = false
     let book: OrderBook | null = null
@@ -107,22 +116,15 @@ export function createBookFeed({
 
     function fail(error: unknown): void {
       if (!isCurrent()) return
-      attemptId++
-      clearTimeout(healthyTimer)
-      clearTimeout(watchdogTimer)
-      clearTimeout(publicationTimer)
-      publicationTimer = undefined
+      stopAttempt()
       dirty = false
-      interrupt = undefined
-      checkHealth = undefined
-      closeSocket()
       state = {
         ...state,
         status: "Reconnecting",
         isStale: true,
         error: error instanceof Error ? error.message : String(error),
       }
-      if (online) {
+      if (online && visible) {
         const delay = retryCeiling * (0.5 + random() * 0.5)
         retryCeiling = Math.min(retryCeiling * 2, MAX_RETRY_MS)
         retryTimer = setTimeout(() => {
@@ -291,7 +293,7 @@ export function createBookFeed({
     else {
       state = {
         ...state,
-        status: "Reconnecting",
+        status: visible ? "Reconnecting" : "Suspended",
         isStale: true,
         error: error.message,
       }
@@ -311,10 +313,30 @@ export function createBookFeed({
       connect()
     },
     visible: () => {
-      if (!disposed) checkHealth?.()
+      if (disposed) return
+      if (visible) {
+        checkHealth?.()
+        return
+      }
+      visible = true
+      if (online) connect()
+      else {
+        state = { ...state, status: "Reconnecting", error: "Browser is offline" }
+        onChange(state)
+      }
+    },
+    hidden: () => {
+      if (disposed || !visible) return
+      visible = false
+      stopAttempt()
+      state = { ...state, status: "Suspended", isStale: true }
+      onChange(state)
     },
   })
-  if (online) {
+  if (!visible) {
+    state = { ...state, status: "Suspended" }
+    onChange(state)
+  } else if (online) {
     connect()
   } else {
     state = { ...state, status: "Reconnecting", error: "Browser is offline" }

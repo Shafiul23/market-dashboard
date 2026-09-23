@@ -15,10 +15,11 @@ describe("browserLifecycle", () => {
     const removeWindow = vi.spyOn(windowTarget, "removeEventListener")
     const addDocument = vi.spyOn(documentTarget, "addEventListener")
     const removeDocument = vi.spyOn(documentTarget, "removeEventListener")
-    const handlers = { offline: vi.fn(), online: vi.fn(), visible: vi.fn() }
+    const handlers = { offline: vi.fn(), online: vi.fn(), visible: vi.fn(), hidden: vi.fn() }
     const unsubscribe = browserLifecycle.subscribe(handlers)
 
     expect(browserLifecycle.isOnline()).toBe(false)
+    expect(browserLifecycle.isVisible()).toBe(false)
     navigatorState.onLine = true
     expect(browserLifecycle.isOnline()).toBe(true)
     windowTarget.dispatchEvent(new Event("offline"))
@@ -26,6 +27,7 @@ describe("browserLifecycle", () => {
     documentTarget.dispatchEvent(new Event("visibilitychange"))
     expect(handlers.visible).not.toHaveBeenCalled()
     documentTarget.visibilityState = "visible"
+    expect(browserLifecycle.isVisible()).toBe(true)
     documentTarget.dispatchEvent(new Event("visibilitychange"))
     for (const handler of Object.values(handlers)) expect(handler).toHaveBeenCalledTimes(1)
 
@@ -38,5 +40,8 @@ describe("browserLifecycle", () => {
     windowTarget.dispatchEvent(new Event("online"))
     documentTarget.dispatchEvent(new Event("visibilitychange"))
     for (const handler of Object.values(handlers)) expect(handler).toHaveBeenCalledTimes(1)
+    documentTarget.visibilityState = "hidden"
+    documentTarget.dispatchEvent(new Event("visibilitychange"))
+    expect(handlers.hidden).toHaveBeenCalledTimes(1)
   })
 })

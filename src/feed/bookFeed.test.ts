@@ -18,7 +18,7 @@ function logFlow(...args: unknown[]) {
   if (LOG_DATA_FLOW) console.log(...args)
 }
 
-function setup(trace = false, random = vi.fn(() => 0), initiallyOnline = true) {
+function setup(trace = false, random = vi.fn(() => 0), initiallyOnline = true, initiallyVisible = true) {
   const sockets: FakeSocket[] = []
   const createSocket = vi.fn(() => {
     const socket = new FakeSocket()
@@ -31,6 +31,7 @@ function setup(trace = false, random = vi.fn(() => 0), initiallyOnline = true) {
   const unsubscribe = vi.fn()
   const lifecycle: FeedLifecycle = {
     isOnline: () => initiallyOnline,
+    isVisible: () => initiallyVisible,
     subscribe: (handlers) => {
       events = handlers
       return unsubscribe
@@ -84,6 +85,84 @@ describe("createBookFeed", () => {
   afterEach(() => {
     vi.clearAllTimers()
     vi.useRealTimers()
+  })
+
+  it.each(["connecting", "synchronising", "live", "retry"])(
+    "suspends while %s and resumes with a fresh snapshot and heartbeat",
+    (phase) => {
+      const { socket, sockets, events, latest, onChange, dispose } = setup()
+      if (phase === "synchronising" || phase === "live") socket.open()
+      if (phase === "live") {
+        socket.message(snapshotMessage)
+        socket.message(heartbeatMessage)
+        socket.message(updateMessage)
+      }
+      const lateMessage = socket.onmessage!
+      if (phase === "retry") socket.error()
+      const previous = latest()
+      events.hidden()
+      expect(latest()).toMatchObject({ status: "Suspended", isStale: true })
+      expect(latest().view).toBe(previous.view)
+      expect(socket.close).toHaveBeenCalledTimes(1)
+      expect([socket.onopen, socket.onmessage, socket.onerror, socket.onclose])
+        .toEqual([null, null, null, null])
+      expect(vi.getTimerCount()).toBe(0)
+      const count = onChange.mock.calls.length
+      events.hidden()
+      events.online()
+      lateMessage(new MessageEvent("message", { data: JSON.stringify(snapshotMessage) }))
+      vi.advanceTimersByTime(60_000)
+      expect(onChange).toHaveBeenCalledTimes(count)
+      expect(sockets).toHaveLength(1)
+
+      events.visible()
+      events.visible()
+      expect(sockets).toHaveLength(2)
+      expect(latest().status).toBe("Connecting")
+      sockets[1].open()
+      sockets[1].message(heartbeatMessage)
+      expect(latest().isStale).toBe(true)
+      expect(latest().view).toBe(previous.view)
+      sockets[1].message({ ...snapshotMessage, bids: [["99", "4"]], asks: [] })
+      expect(latest()).toMatchObject({ status: "Live", isStale: false, error: null })
+      expect(latest().view.bids.map(({ price }) => price)).toEqual(["99"])
+      dispose()
+    },
+  )
+
+  it.each(["online first", "visible first"])(
+    "requires both network and visibility to resume (%s)",
+    (order) => {
+      const { events, sockets, latest, dispose } = setup()
+      events.hidden()
+      events.offline()
+      if (order === "online first") events.online()
+      else events.visible()
+      expect(sockets).toHaveLength(1)
+      expect(vi.getTimerCount()).toBe(0)
+      if (order === "online first") events.visible()
+      else events.online()
+      expect(sockets).toHaveLength(2)
+      expect(latest().status).toBe("Connecting")
+      dispose()
+    },
+  )
+
+  it("starts suspended when hidden and cannot resume after disposal", () => {
+    const { events, sockets, latest, dispose } = setup(false, vi.fn(() => 0), true, false)
+    expect(latest().status).toBe("Suspended")
+    expect(sockets).toHaveLength(0)
+    expect(vi.getTimerCount()).toBe(0)
+    events.online()
+    expect(sockets).toHaveLength(0)
+    events.visible()
+    expect(sockets).toHaveLength(1)
+    events.hidden()
+    dispose()
+    events.visible()
+    events.online()
+    expect(sockets).toHaveLength(1)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it("starts Connecting and sends exactly one subscription on open", () => {

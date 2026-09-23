@@ -2,10 +2,12 @@ type LifecycleHandlers = {
   offline: () => void
   online: () => void
   visible: () => void
+  hidden: () => void
 }
 
 export type FeedLifecycle = {
   isOnline: () => boolean
+  isVisible: () => boolean
   subscribe: (handlers: LifecycleHandlers) => () => void
 }
 
@@ -14,10 +16,15 @@ export const browserLifecycle: FeedLifecycle = {
     return typeof navigator === "undefined" || navigator.onLine !== false
   },
 
-  subscribe({ offline, online, visible }) {
+  isVisible() {
+    return typeof document === "undefined" || document.visibilityState !== "hidden"
+  },
+
+  subscribe({ offline, online, visible, hidden }) {
     if (typeof window === "undefined") return () => {}
     const visibilityChanged = () => {
       if (document.visibilityState === "visible") visible()
+      else if (document.visibilityState === "hidden") hidden()
     }
     window.addEventListener("offline", offline)
     window.addEventListener("online", online)

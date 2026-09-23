@@ -211,6 +211,7 @@ In this step, we also handle controller -> browser interactions. One example is 
     - offline is another window event that notifies us when the browser notices that we're offline now.
     - visibilitychange is a document method, and sends us an update when certain visible changes occurs, like a tab switch, a window minimises, etc.
       - This is an interesting method. Some of the orderbooks I researched online before starting this project did not seem to stop pushing updates even when I switched tabs.
+      - update: implemented this feature post mvp. Connection now suspends on tab switch or minimise using the visiblechange listener.
   - tradeoff: don't necessarily need the object. We could just have an 'isOnline' function and a 'subscribeToLifecycle' function in the file. Housing them in one object perhaps adds a layer of complication but both the functions are related so it isn't too crazy to clump them togehter here.
   - second tradeoff: could keep our data very responsive by continuing computations even when the user is tabbed away from the page, so it's ready to view as soon as they're back or could limit the data we are processing by suspending our connection with the web socket if a 'hidden' event from the visibilitychange listener is triggered (maybe with a 5-10 s delay)
 
