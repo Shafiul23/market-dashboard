@@ -277,3 +277,27 @@ In this step, we wire up the controller to the dashboard view. Shuffled some thi
 - Added a new status 'Stopped' to show that the connection was intentionally stopped. This way, could tighten up the type of the useOrderBook hook. Instead of it returning a wild, untyped object we just added 'stopped' to the allowed list of statuses and made the return type have a shape to follow.
 
 - Also added some testing dependencies. Currently been getting by with plain old vitest but we need to bring in some bigger guns for testing react components and simulating the dom
+
+#### 12b
+
+- used the visibilitychange listener to look out for 'hidden' events
+  - in the browser lifecycle function, we listen out for the visiblechange event.
+  - when we catch one, we check the document object and pull out the visibilityState property
+  - if its 'visible' then we call the visible function
+    - its in bookfeed where we actually define what the visible function does. Essentially, if the application is already visible, we just check health and return. If visible was false, then we make it true and reattempt a connection.
+  - if visibilityState is 'hidden' then we call stopAttempt(), which clears all the timers and closes the socket
+
+### 12c
+
+These small steps weren't part of the original plan but were just some small quality of life updates I've been making while using / reviewing the application
+
+- here, we displayed the error messages that were being so meticulously calculcated in the controller, under the connection label. In the implementation of the app, the error messages actually being shown were super generic. I pulled out the error messages that the fail method was being fed, and the app now renders these messages.
+
+### step 13
+
+This step was added to test the aspects of the application that unit testing alone would not cover
+
+- Units tests zoom in on the code and ensures that functions and the logic at the lowest level of the app can handle its expected use case as well as edge cases
+- integration testing is the same concept but zoomed out - it ensures the logic of the application works as intended from the function level all the way to what is being rendered.
+  - it of course doesn't use live data so doesn't test absolutely everything, but the fake sockets and fixtures ensure that the functions we use have the expected rendered visual.
+  - There are also other aspects of an integration tests like asserting accesibility

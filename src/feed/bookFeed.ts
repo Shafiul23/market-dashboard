@@ -26,7 +26,13 @@ export type FeedSocket = {
 }
 
 export type BookFeedState = Readonly<{
-  status: "Stopped" | "Suspended" | "Connecting" | "Synchronising" | "Live" | "Reconnecting"
+  status:
+    | "Stopped"
+    | "Suspended"
+    | "Connecting"
+    | "Synchronising"
+    | "Live"
+    | "Reconnecting"
   view: BookView
   isStale: boolean
   receivedAt: number | null
@@ -319,9 +325,14 @@ export function createBookFeed({
         return
       }
       visible = true
-      if (online) connect()
-      else {
-        state = { ...state, status: "Reconnecting", error: "Browser is offline" }
+      if (online) {
+        connect()
+      } else {
+        state = {
+          ...state,
+          status: "Reconnecting",
+          error: "Browser is offline",
+        }
         onChange(state)
       }
     },
