@@ -320,3 +320,9 @@ Had a cool idea to render an actual heartbeat on the page that represents the he
   - The way it actually works in the component its being rendered in is we are checking if heartbeatCount > 0. If true, then it calls the tailwind class and calls the animation. The clever part is that as each heartbeat comes in, this property in the controllers state object continues to increment, and updates the key in the svg. It does the check again, is it greater than 0? Then calls the tailwind class.
 
   Might make some updates to how it looks. Its a little plain right now and awkwardly aligned.
+
+### 14 b
+
+- the updating key logic was cool but not very readable. I have replaced this logic with the web api "animate" which handles the transformation and the timing.
+  - now, instead of a key that updates -> causing the entire svg dom to get replaced and invoke the tailwind class - we have a ref pointing to the svg and passed in heartbeatCount to the dependency array of a useEffect that calls the animation api. This way, we have the same svg dom but the animation is handled through the useEffect
+- Also decided to put the connection label and the heartbeat into a little diagnostics panel - looks neater and users have more context on why there is a beating heart on their dashboard.
