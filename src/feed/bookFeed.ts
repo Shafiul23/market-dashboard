@@ -36,6 +36,7 @@ export type BookFeedState = Readonly<{
   view: BookView
   isStale: boolean
   receivedAt: number | null
+  heartbeatCount: number
   error: string | null
 }>
 
@@ -44,6 +45,7 @@ export const initialBookFeedState: BookFeedState = {
   view: createBookView(createOrderBook({ bids: [], asks: [] }), null),
   isStale: true,
   receivedAt: null,
+  heartbeatCount: 0,
   error: null,
 }
 
@@ -252,6 +254,7 @@ export function createBookFeed({
           case "heartbeat":
             heartbeatReady = true
             heartbeatDeadline = monotonicNow() + HEARTBEAT_TIMEOUT_MS
+            state = { ...state, heartbeatCount: state.heartbeatCount + 1 }
             break
         }
         const live = book !== null && heartbeatReady
@@ -274,6 +277,7 @@ export function createBookFeed({
         } else if (live && dirty && publicationTimer === undefined) {
           publicationTimer = setTimeout(publishBook, PUBLICATION_INTERVAL_MS)
         }
+        if (message.type === "heartbeat" && !becomingLive) onChange(state)
       } catch (error) {
         fail(error)
         return

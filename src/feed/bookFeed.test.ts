@@ -261,7 +261,10 @@ describe("createBookFeed", () => {
     )
     socket.message(heartbeatMessage)
     socket.message(heartbeatMessage)
-    expect(latest()).toEqual(updatedState)
+    expect(latest()).toEqual({
+      ...updatedState,
+      heartbeatCount: updatedState.heartbeatCount + 2,
+    })
     expect(latest().view).toBe(updatedState.view)
     expect(now).toHaveBeenCalledTimes(2)
     dispose()
@@ -397,9 +400,10 @@ describe("createBookFeed", () => {
     socket.message(heartbeatMessage)
     expect(vi.getTimerCount()).toBe(timers)
     vi.advanceTimersByTime(9)
-    expect(onChange).not.toHaveBeenCalled()
-    vi.advanceTimersByTime(1)
     expect(onChange).toHaveBeenCalledTimes(1)
+    expect(latest().view).toBe(previous.view)
+    vi.advanceTimersByTime(1)
+    expect(onChange).toHaveBeenCalledTimes(2)
     expect(latest().receivedAt).toBe(3000)
     expect(latest().view.receiptLabel).not.toBe(previous.view.receiptLabel)
     expect(latest().view.bids).toEqual(previous.view.bids)
@@ -871,9 +875,12 @@ describe("createBookFeed", () => {
       vi.advanceTimersByTime(1000)
       socket.message(heartbeatMessage)
     }
-    expect(latest()).toEqual(previous)
+    expect(latest()).toEqual({
+      ...previous,
+      heartbeatCount: previous.heartbeatCount + 40,
+    })
     expect(latest().view).toBe(previous.view)
-    expect(onChange).toHaveBeenCalledTimes(count)
+    expect(onChange).toHaveBeenCalledTimes(count + 40)
     expect(socket.close).not.toHaveBeenCalled()
   })
 

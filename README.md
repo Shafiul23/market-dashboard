@@ -1,8 +1,7 @@
 # Market Dashboard
 
-A React + TypeScript order book for Coinbase BTC-GBP, built with Vite and Tailwind
-CSS. Prices are in GBP and quantities in BTC. Press **Start order book** to connect;
-loading the page alone does not open the market feed.
+A React + TypeScript order book built with Vite and Tailwind
+CSS. This project was created to familiarise with the world of web sockets, high volume data and maintaining an accurate display.
 
 ## Development
 
@@ -28,6 +27,12 @@ from the production build.
 
 ## Data flow and recovery
 
+Many crypto exchanges offer a free tier web socket api that provides high volume,
+streamable data. The data in particular that this application is built for is
+called an orderbook. An orderbook tracks the bids (how much someone is willing to
+pay) and the asks (how much someone is willing to sell for) for an underlying asset.
+The range of assets they can work with is wide but in this project we're working with cryptocurrencies.
+
 `App` owns the Start/Stop control. `useOrderBook` starts and disposes the feed
 controller. The controller decodes Coinbase messages, maintains the full order
 book outside React, and publishes formatted top-ten views to the dashboard.
@@ -50,27 +55,3 @@ Browser scheduling can delay timer execution. Offline events close the feed and
 pause retries; an online event resumes connection attempts. Returning to a visible
 tab checks whether the current attempt has expired. Stop disposes the controller
 and keeps the last visible values marked stale.
-
-## Validation and limits
-
-Unit tests cover decimal arithmetic, book updates, view formatting, protocol
-validation and feed/lifecycle rules. `src/App.test.tsx` renders the real app, hook
-and controller with `FakeSocket` replacing WebSocket. It covers loading to Live,
-sorted top ten, add/replace/remove and depth promotion, interruptions, stale
-recovery, replacement snapshots, empty sides, receipt time and stopping.
-
-DOM tests protect the polite connection live region and check that routine price
-updates do not mutate it. They do not establish spoken screen-reader behavior,
-browser layout, real network recovery or sustained performance.
-
-Before demonstrating the project, run `npm test`, `npm run lint` and
-`npm run build`, then use `npm run preview` for a live check:
-
-- Confirm one active market connection, sorted prices and matching headlines.
-- Leave it running for a short session; compare responsiveness and memory trends
-  near the start and end. Fifteen minutes is an optional observation window.
-- Interrupt actual connectivity, verify incoming feed messages cease, and restore
-  it. Expect stale values followed by a new connection, snapshot and Live state.
-  DevTools Offline alone does not prove an existing WebSocket stopped.
-- Inspect desktop, 320px mobile and actual 200% browser zoom. With a screen reader,
-  check connection announcements and quiet routine price updates.

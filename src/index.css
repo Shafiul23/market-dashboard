@@ -1,1 +1,21 @@
 @import "tailwindcss";
+
+@keyframes heartbeat-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.5);
+  }
+}
+
+.heartbeat-pulse {
+  animation: heartbeat-pulse 0.3s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heartbeat-pulse {
+    animation: none;
+  }
+}

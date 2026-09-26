@@ -4,12 +4,13 @@ import { useOrderBook } from "./hooks/useOrderBook"
 
 export default function App() {
   const [enabled, setEnabled] = useState(false)
-  const { view, status, isStale, error } = useOrderBook(enabled)
+  const { view, status, isStale, error, heartbeatCount } = useOrderBook(enabled)
 
   return (
     <Dashboard
       view={view}
       connectionLabel={status}
+      heartbeatCount={heartbeatCount}
       error={enabled ? error : null}
       isStale={isStale}
       enabled={enabled}

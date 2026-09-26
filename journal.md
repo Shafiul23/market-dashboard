@@ -301,3 +301,22 @@ This step was added to test the aspects of the application that unit testing alo
 - integration testing is the same concept but zoomed out - it ensures the logic of the application works as intended from the function level all the way to what is being rendered.
   - it of course doesn't use live data so doesn't test absolutely everything, but the fake sockets and fixtures ensure that the functions we use have the expected rendered visual.
   - There are also other aspects of an integration tests like asserting accesibility
+
+### step 14
+
+This was initially planned to be a full testing plan, running the app for 15 minutes and measuring observations, accessibility, etc. However, I now have some post-MVP goals in my plan so will implement those first before coming back to the full test.
+
+TODO: maybe add a slider that allows users to decide how often publishes are made - how often their screen updates?
+TODO: Add realtime heartbeat ui that increases in size with every heartbeat messages that comes through from the websocket?
+
+### step 14a
+
+Had a cool idea to render an actual heartbeat on the page that represents the heartbeat messages coming from the exchange.
+
+- copied 'filled heart' svg jsx from https://heroicons.com/solid
+- Added 'heartbeatCount' property to the state object. This is a number that increments every time a message of type heartbeat comes through from coinbase
+- css class was needed for custom animations - we take the element and transform it by increasing its size by 50% or x1.5 multiplier. Then scale it back down to normal size, 1x. When this custom css class is called through tailwind, then the animation will ease in and out, lasting 0.3 seconds.
+  - Also cater to 'preferreducedmotion', a setting on browsers that means the user does not want to see excessive motion on the screen (accessibility feature)
+  - The way it actually works in the component its being rendered in is we are checking if heartbeatCount > 0. If true, then it calls the tailwind class and calls the animation. The clever part is that as each heartbeat comes in, this property in the controllers state object continues to increment, and updates the key in the svg. It does the check again, is it greater than 0? Then calls the tailwind class.
+
+  Might make some updates to how it looks. Its a little plain right now and awkwardly aligned.

@@ -10,6 +10,7 @@ import { PLACEHOLDER } from "../lib/format"
 type DashboardProps = {
   view: BookView
   connectionLabel: string
+  heartbeatCount?: number
   error?: string | null
   isStale: boolean
   enabled?: boolean
@@ -19,6 +20,7 @@ type DashboardProps = {
 export function Dashboard({
   view,
   connectionLabel,
+  heartbeatCount = 0,
   error,
   isStale,
   enabled = false,
@@ -32,7 +34,11 @@ export function Dashboard({
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-5xl space-y-8">
-        <MarketHeader connectionLabel={connectionLabel} error={error} />
+        <MarketHeader
+          connectionLabel={connectionLabel}
+          heartbeatCount={heartbeatCount}
+          error={error}
+        />
 
         {onToggle && <OrderBookToggle enabled={enabled} onClick={onToggle} />}
 

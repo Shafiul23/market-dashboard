@@ -2,10 +2,15 @@ import { FeedStatus } from "../atoms/FeedStatus"
 
 type MarketHeaderProps = {
   connectionLabel: string
+  heartbeatCount: number
   error?: string | null
 }
 
-export function MarketHeader({ connectionLabel, error }: MarketHeaderProps) {
+export function MarketHeader({
+  connectionLabel,
+  heartbeatCount,
+  error,
+}: MarketHeaderProps) {
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -19,7 +24,11 @@ export function MarketHeader({ connectionLabel, error }: MarketHeaderProps) {
           Bitcoin / British Pound
         </p>
       </div>
-      <FeedStatus connectionLabel={connectionLabel} error={error} />
+      <FeedStatus
+        connectionLabel={connectionLabel}
+        heartbeatCount={heartbeatCount}
+        error={error}
+      />
     </header>
   )
 }
