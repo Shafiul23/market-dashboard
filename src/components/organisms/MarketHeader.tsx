@@ -1,18 +1,23 @@
 import { FeedStatus } from "../atoms/FeedStatus"
+import { OrderBookToggle } from "../atoms/OrderBookToggle"
 
 type MarketHeaderProps = {
   connectionLabel: string
   heartbeatCount: number
   error?: string | null
+  enabled?: boolean
+  onToggle?: () => void
 }
 
 export function MarketHeader({
   connectionLabel,
   heartbeatCount,
   error,
+  enabled = false,
+  onToggle,
 }: MarketHeaderProps) {
   return (
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p className="text-sm font-medium text-slate-300">
           Coinbase · Market dashboard
@@ -23,6 +28,11 @@ export function MarketHeader({
         <p className="mt-2 text-sm text-slate-400">
           Bitcoin / British Pound
         </p>
+        {onToggle && (
+          <div className="mt-4">
+            <OrderBookToggle enabled={enabled} onClick={onToggle} />
+          </div>
+        )}
       </div>
       <FeedStatus
         connectionLabel={connectionLabel}

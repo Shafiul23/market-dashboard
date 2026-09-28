@@ -326,3 +326,7 @@ Had a cool idea to render an actual heartbeat on the page that represents the he
 - the updating key logic was cool but not very readable. I have replaced this logic with the web api "animate" which handles the transformation and the timing.
   - now, instead of a key that updates -> causing the entire svg dom to get replaced and invoke the tailwind class - we have a ref pointing to the svg and passed in heartbeatCount to the dependency array of a useEffect that calls the animation api. This way, we have the same svg dom but the animation is handled through the useEffect
 - Also decided to put the connection label and the heartbeat into a little diagnostics panel - looks neater and users have more context on why there is a beating heart on their dashboard.
+
+### 14 c
+
+- Wasn't happy with how the diagnostics panel was sitting higher than the header. This was because the orderbook toggle was sitting on its own in the dashboard file, so I moved it into the market header component to reduce the wasted space.

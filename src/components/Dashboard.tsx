@@ -1,6 +1,5 @@
 import type { BookView } from "../book/bookView"
 import { DataFreshness } from "./atoms/DataFreshness"
-import { OrderBookToggle } from "./atoms/OrderBookToggle"
 import { ReceiptTime } from "./atoms/ReceiptTime"
 import { MarketHeader } from "./organisms/MarketHeader"
 import { MarketOverview } from "./organisms/MarketOverview"
@@ -38,9 +37,9 @@ export function Dashboard({
           connectionLabel={connectionLabel}
           heartbeatCount={heartbeatCount}
           error={error}
+          onToggle={onToggle}
+          enabled={enabled}
         />
-
-        {onToggle && <OrderBookToggle enabled={enabled} onClick={onToggle} />}
 
         <DataFreshness isStale={isStale} isWaiting={isWaiting} />
 
