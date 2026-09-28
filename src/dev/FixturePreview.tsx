@@ -15,14 +15,35 @@ const populated: BookSnapshot = {
   ]),
 }
 
+const unequal: BookSnapshot = {
+  bids: [
+    ["65000.25", "2"],
+    ["64999.25", "1"],
+    ["64998.25", "0.25"],
+  ],
+  asks: [
+    ["65001.50", "1"],
+    ["65002.50", "0.5"],
+    ["65003.50", "2"],
+  ],
+}
+
 const snapshots: Record<string, BookSnapshot> = {
   Populated: populated,
   Waiting: { bids: [], asks: [] },
   "Short book": {
-    bids: populated.bids.slice(0, 2),
-    asks: populated.asks.slice(0, 3),
+    bids: unequal.bids.slice(0, 2),
+    asks: unequal.asks.slice(0, 3),
   },
-  Stale: populated,
+  Stale: unequal,
+  "Unequal quantities": unequal,
+  "Extreme quantities": {
+    bids: [
+      ["65000.25", "0.00000000000000000001"],
+      ["64999.25", "1000000"],
+    ],
+    asks: [["65001.50", "1000000"], ["65002.50", "1"]],
+  },
   "Empty bids": { bids: [], asks: populated.asks },
   "Larger values": {
     bids: [["100000.25", "12.34567890"]],

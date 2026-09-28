@@ -364,3 +364,20 @@ TODO BUG: if I hit stop order book then switch tabs, then switch back onto the d
 - Then, on a row by row basis, the max quantity is first checked to see if its 0, if so then we don't want to divide by 0 so we just set proportion to 0
   - If it is not 0, then we use big.js to divide the quantity in the row by the maximum quantity in the top 10. After this value is calculated with the precision of big.js, it is passed into the javascript Number object. The proportion of the bar itself doesn't need to be super accurate so Number is sufficient here - we just want a visual representation of the quantity on the order book in relation to the rest of the snapshot.
 - the tests check the edge cases
+
+### step 16
+
+In this step I added the bars that would represent the proportion of each quantity per snapshot.
+
+- In the orderbookside function that renders each row, there is now a map function that will add a bar (green for bids, red for asks) that takes up a width representative of the proportion that was derived in the earlier step
+- I also flipped the columns for the asks table
+  - the tables are now mirrored - the bids table has headers price, quantity and the asks table flips these with quantity, price. This should make it easier to compare the two tables, by making the eyes travel less distance between the quantity columns. The bars also originate from the center, going right to left for bids and left to right for asks.
+- the bars themselves only take up the width of the quantity column and does not overflow into price.
+
+This change introduced two maps into orderbookside which made me curious on the performance. I ran react profiler on a cold start of the dashboard, and most components rendered in under 2 ms with a clear 'heaviest' component being orderbookside. This is the one responsible for rendering the rows. In the profiler, each table rendered as its own component (the order book function passes the bids object and the asks object into the same orderbookside function to compute the rows). The time taken ranged from about 5ms to 11ms. I then stashed all the changes and ran the profiler again without the quantity bars. The orderbookside component was still the heaviest thing being processed but much much faster - about 1-4 ms to render.
+
+The quantity bars introduces a significant render cost to the dashboard. However, it is still under 16 ms, which is the length of time of 1 frame on a 60 Hz screen so the rendering is still within an acceptable budget. One drawback is that on 120 Hz screens, one frame is about 8ms so this introduction would cause the compute of the table rows to likely take longer than the screen is updating.
+
+One potential solution I can think of to reduce the complexity of the file is to have separate bid and ask functions. It made sense to use the same function when there wasn't much difference between the two but now with the mirroring, I believe these is enough difference between the two to have its own functions (wouldn't need the map anymore).
+
+I am unsure on whether the map itself is slowing down the rendering, or simply painting in the bars but I will do some further experimenting to find out.
