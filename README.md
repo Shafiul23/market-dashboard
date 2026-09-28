@@ -40,11 +40,10 @@ Decimal arithmetic uses `big.js`; price and quantity values remain decimal
 strings. Headlines and table rows come from the same published view.
 
 Opening a connection moves from Connecting to Synchronising. Live requires both
-a snapshot and a heartbeat from that attempt. Subsequent book changes are
-coalesced into 100ms publication windows; connection failures are reported
+a snapshot and a heartbeat from that attempt. Updates are tracked in an internal book and published every 200 ms; connection failures are reported
 immediately. The receipt label is the local receipt time of the last accepted
 book message, displayed in UTC. Heartbeats do not advance it, and it is not an
-exchange timestamp or a latency measurement.
+exchange timestamp or a latency measurement. Heartbeats arrive from the exchange to indicate a healthy connection. The diagnostics panel shows a pulse monitor which triggers an animation everytime a heartbeat message comes through.
 
 A detected failure marks the last published values stale. Recovery creates a new
 book from a new snapshot before returning to Live. Retry delays use jitter and

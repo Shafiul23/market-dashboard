@@ -330,3 +330,29 @@ Had a cool idea to render an actual heartbeat on the page that represents the he
 ### 14 c
 
 - Wasn't happy with how the diagnostics panel was sitting higher than the header. This was because the orderbook toggle was sitting on its own in the dashboard file, so I moved it into the market header component to reduce the wasted space.
+
+### 14 d
+
+This is a common pitfall I am prone to suffering from - where I have certain ideas for features and go down a rabithole of polishing them instead of progressing the wider project. I believe this itself is a skill to hone, its useful at the right dose but for longer term projects can derail overall progress.
+
+I updated the diagnostics panel one more time - instead of a heart emoji growing and shrinking, the heartbeats will show up in a pulse monitor style (humans already figured out the best UI for displaying a heartbeat - the function here will be very similar to what we see at hospitals)
+
+The reason I added this feature was because I opened the project on a weekend and very few orders were coming in. The connection was showing live but the data was not updating as fast as it would on the weekday. Everything was working fine but it felt too static and wasn't sure if there was an error causing the 'connection: live' status to linger.
+
+From a backend perspective, this problem is already solved. The heartbeat message that comes from the websocket is already ingested to compute how long a connection should be displayed as live for - after 5 seconds of no heartbeat the controller calls the fail method. This extra UI just helps show that the connection is healthy, even if the page is static.
+
+TODO BUG: if I hit stop order book then switch tabs, then switch back onto the dashboard, the connection suspends for a brief moment then goes back to live streaming
+
+- My prediction: hitting stop order book calls the dispose function and begins the process of closing the websocket. Switching tabs trigger the 'hidden' event which again closes the socket (shouldn't be a problem here - close is idempotent) but then switching BACK onto the tab again is calling the 'visible' event. I suspect this overrides the close function. will experiment
+
+- To add this feature, I went down a slight rabbithole on web animations - specifically on the timing:
+  - there are a handful of methods like linear, different types of easing, cubic bezier and step.
+  - Everything but the step functions can be described using the cubic bezier function.
+    - What this does is maps out the time of the animation and the progress of the animation (e.g., 500ms transform and a 200 px horizontal movement) and then describes the speed in which the animation takes place
+    - progress could be a bunch of things, linear movement, opacity, growth, etc. This is the y axis of the cubic bezier. The x axis is just time. A straight line from 0,0 to 1,1 describes a smooth animation, no speeding up or slowing down just make the progress of the animation at a constant rate. However, the cubic bezier allows the definition of two 'turning points' on the cubic polynomical that describes the animation speed, (x1, y1, x2, y2). Where these coordinates are placed can influence how sharply the curve bends. The function itself will not always go directly to these turning points - it will attmempt to create a smooth curve, but it will be influenced by these coordinates. That is why linear and ease-in / ease-out animations can be replicated using cubic bezier. E.g., (0, 0, 1, 1) - this first coordinate is the bottom left of our graph, which represents the start of the animation in time, and in progress. (1, 1) represents the end of the animation in time and progress. The x coordinates cannot be set outside the range 0-1 because it describes the animation timing. The y coordinates however, can be adjusted outside the range. E.g., extending a transformation beyond what the initial conditons set.
+      - The name Bezier comes from a car designer from Renault who wanted to come up with a convention for designers to describe the specifics of a curve, one that is smooth and looks appealing.
+  - In the end, I chose a simple linear animation timing for this feature to make the pulse animate nice and smoothly
+- Next, I created a new svg which has two paths in it. the svg itself sets the viewbox - the canvas for the paths to draw in. also sets some boundaries with overflow-hidden, clipping anything that passes it.
+  - the first path is a nice, plain horizontal line. grey-ish in colour. the second path paints the shape of a peak on a heartbeat monitor
+  - For this second path, only 80% is defined as a visible dash along its whole width. Over the set animation time (currently 900ms) the front progressively draws the waveform and when it reaches 80% (set by strokeDashoffset: "0.8) then it begins to erase itself from the left. Eventually the whole thing leaves to the right.
+- The useEffect and triggering of the animation has been left untouched since the feature was implemented - still triggers on heartbeatCount incrementing. It plays the animation out over 900ms, and coinbase says that heartbeats get sent out about every 1s. If for some reason a heartbeat comes in mid animation, it will cancel the old one and start a fresh animation.
