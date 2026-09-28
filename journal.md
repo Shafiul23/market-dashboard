@@ -356,3 +356,11 @@ TODO BUG: if I hit stop order book then switch tabs, then switch back onto the d
   - the first path is a nice, plain horizontal line. grey-ish in colour. the second path paints the shape of a peak on a heartbeat monitor
   - For this second path, only 80% is defined as a visible dash along its whole width. Over the set animation time (currently 900ms) the front progressively draws the waveform and when it reaches 80% (set by strokeDashoffset: "0.8) then it begins to erase itself from the left. Eventually the whole thing leaves to the right.
 - The useEffect and triggering of the animation has been left untouched since the feature was implemented - still triggers on heartbeatCount incrementing. It plays the animation out over 900ms, and coinbase says that heartbeats get sent out about every 1s. If for some reason a heartbeat comes in mid animation, it will cancel the old one and start a fresh animation.
+
+### step 15
+
+- each time createBookView is called, all the current bids and asks that have been decoded from coinbase get passed in. In this function, there is now a new feature that calculates the maximum quantity per snapshot. This includes both bids and asks so there is only 1 max quantity value.
+  - It does this by taking the levels array (which spreads the top 10 bids and top 10 asks) and goes through each element, comparing it against the current "maximum" value. Initial value is 0, so as the reducer loops through the array, it checks if the current value is greater than the current maximum using big.js. If yes, it becomes the new maximum and sets out maximumQuantity value.
+- Then, on a row by row basis, the max quantity is first checked to see if its 0, if so then we don't want to divide by 0 so we just set proportion to 0
+  - If it is not 0, then we use big.js to divide the quantity in the row by the maximum quantity in the top 10. After this value is calculated with the precision of big.js, it is passed into the javascript Number object. The proportion of the bar itself doesn't need to be super accurate so Number is sufficient here - we just want a visual representation of the quantity on the order book in relation to the rest of the snapshot.
+- the tests check the edge cases

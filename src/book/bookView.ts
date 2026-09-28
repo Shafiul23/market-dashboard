@@ -9,6 +9,7 @@ export type BookViewRow = Readonly<{
   quantity: string
   priceLabel: string
   quantityLabel: string
+  quantityProportion: number
 }>
 
 export type BookView = Readonly<{
@@ -36,6 +37,10 @@ export function createBookView(
 ): BookView {
   const top = selectTopLevels(book)
   const levels = [...top.bids, ...top.asks]
+  const maximumQuantity = levels.reduce((maximum, level) => {
+    const quantity = parseDecimal(level.quantity)
+    return quantity.gt(maximum) ? quantity : maximum
+  }, parseDecimal("0"))
   const pricePrecision = columnPrecision(
     levels.map((level) => level.price),
     2,
@@ -52,6 +57,9 @@ export function createBookView(
       quantity: level.quantity,
       priceLabel: formatDecimal(level.price, pricePrecision),
       quantityLabel: formatDecimal(level.quantity, quantityPrecision),
+      quantityProportion: maximumQuantity.eq("0")
+        ? 0
+        : Number(parseDecimal(level.quantity).div(maximumQuantity).toString()),
     }
   }
 

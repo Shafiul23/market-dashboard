@@ -26,6 +26,93 @@ describe("createBookView", () => {
     expect(view.receiptLabel).toBe("Received 2026-09-09 14:32:08.123 UTC")
   })
 
+  it.each(["bids", "asks"] as const)(
+    "scales both sides by the largest visible quantity on %s",
+    (side) => {
+      const opposite = side === "bids" ? "asks" : "bids"
+      const book = createOrderBook({
+        bids: [["100", "1"]],
+        asks: [["101", "1"]],
+      })
+      applyChanges(book, [[side === "bids" ? "buy" : "sell", "99", "2"]])
+      const view = createBookView(book, null)
+
+      expect(
+        view[side].find((row) => row.quantity === "2")?.quantityProportion,
+      ).toBe(1)
+      expect(
+        view[side].find((row) => row.quantity === "1")?.quantityProportion,
+      ).toBe(0.5)
+      expect(view[opposite][0].quantityProportion).toBe(0.5)
+    },
+  )
+
+  it("ignores quantities outside the visible top ten on either side", () => {
+    const book = createOrderBook(unsortedSnapshot)
+    applyChanges(book, [
+      ["buy", "99.89", "1000"],
+      ["sell", "100.21", "2000"],
+    ])
+    const view = createBookView(book, null)
+
+    for (const row of [...view.bids, ...view.asks]) {
+      expect(row.quantityProportion).toBe(1)
+    }
+  })
+
+  it.each([
+    ["0.00000000000000000002", "0.00000000000000000001", 0.5],
+    ["2e-400", "1e-400", 0.5],
+    ["2e400", "1e400", 0.5],
+    ["3", "1", 1 / 3],
+  ])(
+    "divides exact quantities %s and %s before numeric conversion",
+    (maximum, quantity, expected) => {
+      const view = createBookView(
+        createOrderBook({
+          bids: [["100", maximum]],
+          asks: [["101", quantity]],
+        }),
+        null,
+      )
+
+      expect(view.bids[0].quantityProportion).toBe(1)
+      expect(view.asks[0].quantityProportion).toBe(expected)
+      expect(view.asks[0].quantity).toBe(quantity)
+    },
+  )
+
+  it("returns zero proportions when the visible maximum is zero", () => {
+    const book = {
+      bids: new Map([["100", { price: "100", quantity: "0" }]]),
+      asks: new Map([["101", { price: "101", quantity: "0.00" }]]),
+    }
+    const view = createBookView(book, null)
+
+    expect(view.bids[0].quantityProportion).toBe(0)
+    expect(view.asks[0].quantityProportion).toBe(0)
+  })
+
+  it("rescales an unchanged quantity when the opposite maximum changes", () => {
+    const book = createOrderBook({
+      bids: [["100.00", "1.00"]],
+      asks: [["101", "2"]],
+    })
+    const previous = createBookView(book, null)
+
+    applyChanges(book, [["sell", "101", "4"]])
+    const view = createBookView(book, null)
+
+    expect(previous.bids[0].quantityProportion).toBe(0.5)
+    expect(view.bids[0]).toEqual({
+      ...previous.bids[0],
+      quantityProportion: 0.25,
+    })
+    expect(view.asks[0].quantityProportion).toBe(1)
+    expect([...book.bids.keys()]).toEqual(["100"])
+    expect([...book.asks.keys()]).toEqual(["101"])
+  })
+
   it.each([
     ["buy", "100", "99.99", "100.1"],
     ["sell", "100.1", "100", "100.11"],
@@ -66,6 +153,12 @@ describe("createBookView", () => {
       expect(view.spread).toBeNull()
       expect(view.spreadLabel).toBe("—")
       expect(view.receiptLabel).toBe("—")
+      expect(view.bids.map((row) => row.quantityProportion)).toEqual(
+        book.bids.size ? [1] : [],
+      )
+      expect(view.asks.map((row) => row.quantityProportion)).toEqual(
+        book.asks.size ? [1] : [],
+      )
     },
   )
 
