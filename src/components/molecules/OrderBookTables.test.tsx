@@ -3,19 +3,21 @@ import { render, screen, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { createBookView } from "../../book/bookView"
 import { applyChanges, createOrderBook } from "../../book/orderBook"
-import { OrderBookSide } from "./OrderBookSide"
+import { OrderBookAsks } from "./OrderBookAsks"
+import { OrderBookBids } from "./OrderBookBids"
 
-describe("OrderBookSide quantity bars", () => {
+describe("Order book quantity bars", () => {
   it.each(["bids", "asks"] as const)(
     "keeps %s values accessible and row identity stable when bars resize",
     (side) => {
+      const Component = side === "bids" ? OrderBookBids : OrderBookAsks
       const book = createOrderBook({
         bids: [["100", "1"]],
         asks: [["101", "1"]],
       })
       const view = createBookView(book, null)
       const { rerender } = render(
-        <OrderBookSide side={side} rows={view[side]} isWaiting={false} />,
+        <Component rows={view[side]} isWaiting={false} />,
       )
       const table = screen.getByRole("table", {
         name: side === "bids" ? "Bids" : "Asks",
@@ -30,8 +32,7 @@ describe("OrderBookSide quantity bars", () => {
 
       applyChanges(book, [[side === "bids" ? "sell" : "buy", "102", "2"]])
       rerender(
-        <OrderBookSide
-          side={side}
+        <Component
           rows={createBookView(book, null)[side]}
           isWaiting={false}
         />,
@@ -52,7 +53,7 @@ describe("OrderBookSide quantity bars", () => {
     "keeps empty-state rows free of bars (waiting: %s)",
     (isWaiting) => {
       const { container } = render(
-        <OrderBookSide side="bids" rows={[]} isWaiting={isWaiting} />,
+        <OrderBookBids rows={[]} isWaiting={isWaiting} />,
       )
 
       expect(screen.getByRole("cell", {

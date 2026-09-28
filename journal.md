@@ -381,3 +381,12 @@ The quantity bars introduces a significant render cost to the dashboard. However
 One potential solution I can think of to reduce the complexity of the file is to have separate bid and ask functions. It made sense to use the same function when there wasn't much difference between the two but now with the mirroring, I believe these is enough difference between the two to have its own functions (wouldn't need the map anymore).
 
 I am unsure on whether the map itself is slowing down the rendering, or simply painting in the bars but I will do some further experimenting to find out.
+
+### 16a
+
+- separated out the rendered row computation for bids and asks
+  - There was a lot of ternaries being used in orderbookside, some logic for bids and some for asks
+  - Decided I would rather have two very similar looking functions but dedicated to the bid and ask table.
+- Pre change, the profiler was showing render times of about 3-12 ms and post change it cut down to about 3-6 ms. This has been a slight improvement - although I have to include that these tests were run on live data so there was a lot of variance between experiments and even within the same experiment. To test this properly, would be better to use fixtures so the actual change itself can be isolated, measured and compared.
+  - ultimately though, we're still well under 16 ms for these tests and that is including the overhead that the profiler itself adds. (Also excludes all the other things that happen between computation and paint - this would be a task for the performance tab)
+- also made the tables more symmetrical.

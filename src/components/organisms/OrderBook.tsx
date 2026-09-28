@@ -1,5 +1,6 @@
 import type { BookView } from "../../book/bookView"
-import { OrderBookSide } from "../molecules/OrderBookSide"
+import { OrderBookAsks } from "../molecules/OrderBookAsks"
+import { OrderBookBids } from "../molecules/OrderBookBids"
 
 type OrderBookProps = {
   view: Pick<BookView, "bids" | "asks">
@@ -16,8 +17,8 @@ export function OrderBook({ view, isWaiting }: OrderBookProps) {
         Prices in GBP · Quantities in BTC · 10 levels per side
       </p>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <OrderBookSide side="bids" rows={view.bids} isWaiting={isWaiting} />
-        <OrderBookSide side="asks" rows={view.asks} isWaiting={isWaiting} />
+        <OrderBookBids rows={view.bids} isWaiting={isWaiting} />
+        <OrderBookAsks rows={view.asks} isWaiting={isWaiting} />
       </div>
     </section>
   )
