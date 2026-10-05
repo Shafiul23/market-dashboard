@@ -390,3 +390,16 @@ I am unsure on whether the map itself is slowing down the rendering, or simply p
 - Pre change, the profiler was showing render times of about 3-12 ms and post change it cut down to about 3-6 ms. This has been a slight improvement - although I have to include that these tests were run on live data so there was a lot of variance between experiments and even within the same experiment. To test this properly, would be better to use fixtures so the actual change itself can be isolated, measured and compared.
   - ultimately though, we're still well under 16 ms for these tests and that is including the overhead that the profiler itself adds. (Also excludes all the other things that happen between computation and paint - this would be a task for the performance tab)
 - also made the tables more symmetrical.
+
+### step 17
+
+Initially planned on having an expand toggle on the table which opens up a modal. Read an article on the difference between a modal and a dialog - a dialog pops up on a page but does not block interaction with the rest of the page while a modal requires attention from a user. The table expand feature was ultimately discarded because it lacked all the correctness data that comes with the dashboard, so I found myself slowly adding features into the expanded view which was recreating the original dashboard (e.g., market freshness label and the connection label). Instead, I decided to add a full screen button for the entire dashboard. The browser header clashes with the real estate that could be used to display the dashboard so having a full screen mode allows for a nice clean view.
+
+- In marketheader, added a new toggle that activates and closes full screen mode.
+- This toggle receives a ref that was created to point towards the main tag in the dashboard
+- in fullscreentoggle, we continue to drill down the ref prop and pass it into a useEffect that registers the fullscreenchange event listener. If this event is detected, we update our state that tracks the status of full screen.
+  - The reason we're doing this with an event listener is because the esc button can toggle this event.
+  - If fullscreenelement is the same as our main tag ref then we return true. This check is added to keep react state in line with browser state (since our toggle can trigger a fullscreen event OR the keyboard esc)
+- The next function in the file now just checks the ref is not null, checks again to see if the fullscreenelement from the document object is the same as our target ref
+  - if so then the toggle calls the Element api to request a close full screen. If not then we requestFullScreen()
+  - There is also some error catching here if the fullscreen web api fails for whatever reason. It is an unlikely failure but we are still handling a promise here

@@ -1,3 +1,4 @@
+import { useRef } from "react"
 import type { BookView } from "../book/bookView"
 import { DataFreshness } from "./atoms/DataFreshness"
 import { ReceiptTime } from "./atoms/ReceiptTime"
@@ -25,20 +26,26 @@ export function Dashboard({
   enabled = false,
   onToggle,
 }: DashboardProps) {
+  const dashboardRef = useRef<HTMLElement>(null)
+
   const isWaiting =
     view.receiptLabel === PLACEHOLDER &&
     view.bids.length === 0 &&
     view.asks.length === 0
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 sm:py-12">
-      <div className="mx-auto max-w-5xl space-y-8">
+    <main
+      ref={dashboardRef}
+      className="group min-h-screen overflow-y-auto bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 sm:py-12 [&:fullscreen]:h-screen"
+    >
+      <div className="mx-auto max-w-5xl space-y-8 group-[:fullscreen]:max-w-none">
         <MarketHeader
           connectionLabel={connectionLabel}
           heartbeatCount={heartbeatCount}
           error={error}
           onToggle={onToggle}
           enabled={enabled}
+          fullscreenTargetRef={dashboardRef}
         />
 
         <DataFreshness isStale={isStale} isWaiting={isWaiting} />

@@ -1,3 +1,5 @@
+import type { RefObject } from "react"
+import { FullscreenToggle } from "../atoms/FullscreenToggle"
 import { FeedStatus } from "../atoms/FeedStatus"
 import { OrderBookToggle } from "../atoms/OrderBookToggle"
 
@@ -7,6 +9,7 @@ type MarketHeaderProps = {
   error?: string | null
   enabled?: boolean
   onToggle?: () => void
+  fullscreenTargetRef?: RefObject<HTMLElement | null>
 }
 
 export function MarketHeader({
@@ -15,6 +18,7 @@ export function MarketHeader({
   error,
   enabled = false,
   onToggle,
+  fullscreenTargetRef,
 }: MarketHeaderProps) {
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -28,9 +32,12 @@ export function MarketHeader({
         <p className="mt-2 text-sm text-slate-400">
           Bitcoin / British Pound
         </p>
-        {onToggle && (
-          <div className="mt-4">
-            <OrderBookToggle enabled={enabled} onClick={onToggle} />
+        {(onToggle || fullscreenTargetRef) && (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {onToggle && <OrderBookToggle enabled={enabled} onClick={onToggle} />}
+            {fullscreenTargetRef && (
+              <FullscreenToggle targetRef={fullscreenTargetRef} />
+            )}
           </div>
         )}
       </div>
