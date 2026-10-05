@@ -244,7 +244,7 @@ describe("createBookFeed", () => {
       JSON.stringify(updateMessage),
     )
     socket.message(updateMessage)
-    vi.advanceTimersByTime(100)
+    vi.advanceTimersByTime(500)
     const updatedState = latest()
     expect(updatedState.receivedAt).toBe(2000)
     expect(updatedState.view.bids[0]).toMatchObject({
@@ -293,7 +293,7 @@ describe("createBookFeed", () => {
     socket.message(updateMessage)
     now.mockReturnValue(2000)
     socket.message({ ...snapshotMessage, bids: [["99", "4"]], asks: [] })
-    vi.advanceTimersByTime(100)
+    vi.advanceTimersByTime(500)
     expect(latest().view.bids.map(({ price }) => price)).toEqual(["99"])
     expect(latest().view.asks).toEqual([])
     expect(latest().receivedAt).toBe(2000)
@@ -307,7 +307,7 @@ describe("createBookFeed", () => {
     expect(latest().status).toBe("Live")
     now.mockReturnValue(2000)
     socket.message({ ...updateMessage, changes: [] })
-    vi.advanceTimersByTime(100)
+    vi.advanceTimersByTime(500)
     expect(latest().receivedAt).toBe(2000)
   })
 
@@ -334,7 +334,7 @@ describe("createBookFeed", () => {
       })
       vi.advanceTimersByTime(1)
     }
-    vi.advanceTimersByTime(59)
+    vi.advanceTimersByTime(459)
     expect(onChange).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1)
     expect(onChange).toHaveBeenCalledTimes(1)
@@ -355,7 +355,7 @@ describe("createBookFeed", () => {
       })
       vi.advanceTimersByTime(2)
     }
-    vi.advanceTimersByTime(39)
+    vi.advanceTimersByTime(439)
     expect(onChange).toHaveBeenCalledTimes(1)
     vi.advanceTimersByTime(1)
     expect(onChange).toHaveBeenCalledTimes(2)
@@ -394,7 +394,7 @@ describe("createBookFeed", () => {
     now.mockReturnValue(2000)
     socket.message(repeated)
     const timers = vi.getTimerCount()
-    vi.advanceTimersByTime(90)
+    vi.advanceTimersByTime(490)
     now.mockReturnValue(3000)
     socket.message(repeated)
     socket.message(heartbeatMessage)
@@ -442,7 +442,7 @@ describe("createBookFeed", () => {
       }
       const count = onChange.mock.calls.length
       expect(vi.getTimerCount()).toBe(event === "offline" || event === "dispose" ? 0 : 1)
-      vi.advanceTimersByTime(100)
+      vi.advanceTimersByTime(450)
       expect(onChange).toHaveBeenCalledTimes(count)
     },
   )
@@ -456,7 +456,7 @@ describe("createBookFeed", () => {
     socket.message(updateMessage)
     onChange.mockClear()
     monotonicNow.mockReturnValue(performance.now() + 5000)
-    vi.advanceTimersByTime(100)
+    vi.advanceTimersByTime(500)
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(latest()).toMatchObject({
       status: "Reconnecting",
@@ -487,7 +487,7 @@ describe("createBookFeed", () => {
       error: "Coinbase heartbeat timed out",
     })
     expect(latest().view).toBe(previous.view)
-    vi.advanceTimersByTime(50)
+    vi.advanceTimersByTime(450)
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(1)
   })

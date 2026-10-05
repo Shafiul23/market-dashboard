@@ -18,10 +18,10 @@ export function OrderBookAsks({ rows, isWaiting }: OrderBookAsksProps) {
               scope="col"
               className="w-1/2 pt-4 pb-3 font-medium pr-3 text-left"
             >
-              Quantity<span className="sr-only"> in BTC</span>
+              Quantity <span className="sr-only">in BTC</span>
             </th>
             <th scope="col" className="w-1/2 pt-4 pb-3 font-medium pl-3">
-              Price<span className="sr-only"> in GBP</span>
+              Price <span className="sr-only">in GBP</span>
             </th>
           </tr>
         </thead>

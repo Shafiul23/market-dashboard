@@ -22,6 +22,8 @@ describe("Order book quantity bars", () => {
       const table = screen.getByRole("table", {
         name: side === "bids" ? "Bids" : "Asks",
       })
+      expect(within(table).getByRole("columnheader", { name: "Price in GBP" })).toBeTruthy()
+      expect(within(table).getByRole("columnheader", { name: "Quantity in BTC" })).toBeTruthy()
       const row = within(table).getAllByRole("row")[1]
       const cell = within(row).getByRole("cell", { name: "1.00000000" })
       const bar = cell.querySelector('[aria-hidden="true"]') as HTMLElement

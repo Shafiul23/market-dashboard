@@ -145,7 +145,7 @@ describe("dashboard acceptance flows", () => {
         "100.17",
         "100.18",
         "100.19",
-      ].map((price) => [price, "1.00000000"]),
+      ].map((price) => ["1.00000000", price]),
     )
     expect(
       screen.getByText(
@@ -220,11 +220,11 @@ describe("dashboard acceptance flows", () => {
     for (const { change, bid, ask, spread, quantity } of steps) {
       act(() => {
         sockets[0].message({ ...updateMessage, changes: [change] })
-        vi.advanceTimersByTime(100)
+        vi.advanceTimersByTime(500)
       })
       expectOverview(bid, ask, spread)
       expect(rows("Bids")[0]).toEqual([bid, quantity])
-      expect(rows("Asks")[0]).toEqual([ask, "1.00000000"])
+      expect(rows("Asks")[0]).toEqual(["1.00000000", ask])
       expect(rows("Bids")).toHaveLength(10)
       expect(rows("Asks")).toHaveLength(10)
       expect(screen.getByRole("status")).toBe(status)
@@ -232,10 +232,10 @@ describe("dashboard acceptance flows", () => {
     }
     announcements.disconnect()
     expect(rows("Bids").at(-1)).toEqual(["99.90", "1.00000000"])
-    expect(rows("Asks").at(-1)).toEqual(["100.20", "1.00000000"])
+    expect(rows("Asks").at(-1)).toEqual(["1.00000000", "100.20"])
     expect(
       screen.getByText(
-        "Last book update: Received 2026-09-14 12:00:00.400 UTC",
+        "Last book update: Received 2026-09-14 12:00:02.000 UTC",
       ),
     ).toBeTruthy()
   })
@@ -299,7 +299,7 @@ describe("dashboard acceptance flows", () => {
       expect(screen.getByText(/^Live data:/)).toBeTruthy()
       expectOverview("98.00", "102.00", "4.00")
       expect(rows("Bids")).toEqual([["98.00", "4.00000000"]])
-      expect(rows("Asks")).toEqual([["102.00", "5.00000000"]])
+      expect(rows("Asks")).toEqual([["5.00000000", "102.00"]])
       expect(screen.getByText(/^Last book update:/).textContent).not.toBe(
         receipt,
       )
@@ -311,12 +311,12 @@ describe("dashboard acceptance flows", () => {
     startLive(sockets)
     act(() => {
       sockets[0].message({ ...snapshotMessage, bids: [], asks: [["105", "2"]] })
-      vi.advanceTimersByTime(100)
+      vi.advanceTimersByTime(500)
     })
     expectStatus("Live")
     expectOverview("—Unavailable", "105.00", "—Unavailable")
     expect(rows("Bids")).toEqual([["No bids available."]])
-    expect(rows("Asks")).toEqual([["105.00", "2.00000000"]])
+    expect(rows("Asks")).toEqual([["2.00000000", "105.00"]])
     expect(screen.queryByText("Waiting for market data.")).toBeNull()
   })
 
