@@ -403,3 +403,40 @@ Initially planned on having an expand toggle on the table which opens up a modal
 - The next function in the file now just checks the ref is not null, checks again to see if the fullscreenelement from the document object is the same as our target ref
   - if so then the toggle calls the Element api to request a close full screen. If not then we requestFullScreen()
   - There is also some error catching here if the fullscreen web api fails for whatever reason. It is an unlikely failure but we are still handling a promise here
+
+### step 18
+
+Purpose of this step is to take in price levels from the book, find out which boundary they are most suited to, then group them into buckets. E.g., a bid of £60,000.05 with 0.1 quantity and £60,000.10 with 0.2 quantitiy will get clumped into a bucket of £60,000 with 0.3 quantity.
+
+What this does is it allows users to see the liquidity of the orderbook at a larger scale. Currently, the dashboard shows the top 10 prices for bids and asks. If a particularly large trade would swallow up all the quantity shown at the top 10 levels, it would be difficult to visualise the possible slippage. Those making particularly large trades may want to see the market at a larger scope to get a rough idea of how much liquidity is available at different price points - in this use case, the precision of the prices is less useful.
+
+- one of the exported functions here is groupLevels
+  - this will take in a book object along with an interval and pass that into groupSideLevels.
+  - will return bid and ask buckets based on the interval, fully sorted in order of best prices and to the length of the visible buckets const.
+- also have a small helper function in this change to help ensure we are receiving valid intervals, e.g., set to "1" for now to only allow integers
+  - if "1.5" was added then this would be rejected
+  - It does this by dividing the interval by the increment constant - if there is any remainder (help from big.js) then an error will be thrown
+  - todo: will probably remove this function once I implement a drop down to set the intervals on the dashboard. The increments I'm thinking now are £1, £10 and £100. This could change in the future so I left it open for now. The tradeoff will be how much granular control I hand over to the user. Too much control and an interface becomes less useful. Some decisions can be made from the application level to simplify the decision making process for a user. E.g., it is unlikely anyone would find it useful to group prices in increments of £37. I cannot foresee that sorting all the prices in buckets that are separated by an increment like this would be helpful.
+- Now for the main function: groupSideLevels. What this does is takes in a bid object or ask object along with the interval string.
+  - parse the interval and store this string as an actual value we can use for computations later
+  - define an empty bucket object that'll store all the new groups. E.g., buckets might be £60000, £60001 and £60002.
+  - Next we loop through all the levels in the bid / ask object and populate the bucket. Each level contains a price and quantity property. We store each price in a variable and also its remainder in comparsion to the interval.
+  - the boundary variable looks at each price and decides where this price should exist if it were to be put into a bucket.
+  - if its already a price that exists at the interval increment then we use this value as the key for when it is stored in the bucket
+  - if we're dealing with the asks object, then we look at the price, subtract the remainder, then add the step value.
+    - e.g., if we had £60,000.05 and the increment was £1, then the remainder would be £0.05. Price minus remainder would give us £60,000, then we add the step to give us £60,001. This means in the asks side of things, we round up so our data does not show us prices that are lower than what the trader wants.
+    - If it is a bid at £60,000.05, then we simply subtract the remainder and get a boundary of £60,000. This way, any offers made on the asset won't show higher than what the trader wants to pay for the asset.
+    - This loss of precision is acceptable for the use case of price grouping - less granularity to view larger pools of liquidity. However, its correctness is important. We do not want to clump prices into buckets that convey prices higher than what people are willing to pay, or conveying prices lower than what people are willing to sell for.
+  - Once the boundary is defined, these are used as the keys for the entry in the bucket. If no existing key matches this boundary, it becomes the first entry. If any subsequent price comes in that matches the same boundary, then its quantity is summed.
+    - This way, we get a bigger picture view of the demands that surrounds a price
+    - Additionally, the benefit of using a map here is that lookup and replacement are typically O(1) in complexity. Using a map here might take up a bit more storage but is faster than something like an array. To update a boundary in an array, would need to loop through it each time a new price comes in and we want to sum its quantity into an appropriate bucket. Another drawback is that the map only preserves insertion order, it does not sort the data so we need a separate array for that
+- Once the bucket is populated with all the prices from the book object all placed into their correct groups - we then sort the bucket
+  - this is done by spreading the maps values into an array, then calling the .sort method on it.
+    - the sort method takes a comparator argument, should this entry come before or after another element?
+    - for bids, we want the highest prices first, so we sort our array highest to lowest.
+    - the compareDecimals function will return 1 if the right.price is greater than the left.price, and the sorting algorithm will order prices from highest to lowest
+    - the opposite happens for asks, it gets sorted lowest to highest.
+    - The specific details of which algorithm is used for sorting is hidden under the javascript engine, but Chrome and Node docs point toward using the V8 engine - which uses timsort
+    - This identifies already sorted sections, sorts small sections where needed and merges them together O(nlogn) complexity
+    - I would like to run some experiments here when I run the profiling tests and see if I can improve performance here
+    - The entire book is being sorted and then in groupLevels we slice the top 10 buckets. Might be doing much more work than we need - a heap might be a better way about this use case but will need to test
