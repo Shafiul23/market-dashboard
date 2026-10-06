@@ -228,3 +228,127 @@ describe("createBookView", () => {
     expect(view.spread).toBe("0.1")
   })
 })
+
+describe("grouped createBookView", () => {
+  const snapshot = {
+    bids: [["99.5", "1"], ["100.991", "0.1"], ["100.5", "0.2"]],
+    asks: [["102.5", "0.5"], ["101.001", "0.2"], ["101.5", "0.4"]],
+  } as const
+
+  it("orders bucket boundaries while keeping exact headline values and labels", () => {
+    const book = createOrderBook(snapshot)
+    const raw = createBookView(book, receivedAt)
+    const view = createBookView(book, receivedAt, "1.00")
+
+    expect(view.groupingInterval).toBe("1")
+    expect(view.bids.map((row) => row.price)).toEqual(["100", "99"])
+    expect(view.asks.map((row) => row.price)).toEqual(["102", "103"])
+    expect(view.bids.map((row) => row.id)).toEqual(["bids:1:100", "bids:1:99"])
+    expect(view.asks.map((row) => row.id)).toEqual(["asks:1:102", "asks:1:103"])
+    expect(view.bestBid).toBe("100.991")
+    expect(view.bestAsk).toBe("101.001")
+    expect(view.spread).toBe("0.01")
+    expect(view.bestBidLabel).toBe(raw.bestBidLabel)
+    expect(view.bestAskLabel).toBe(raw.bestAskLabel)
+    expect(view.spreadLabel).toBe(raw.spreadLabel)
+    expect(view.spreadLabel).toBe("0.010")
+    expect(view.receiptLabel).toBe(raw.receiptLabel)
+  })
+
+  it("uses shared display precision and scales bars from bucket totals on both sides", () => {
+    const view = createBookView(createOrderBook(snapshot), null, "1")
+
+    expect(view.bids.map((row) => row.priceLabel)).toEqual(["100.00", "99.00"])
+    expect(view.asks.map((row) => row.priceLabel)).toEqual(["102.00", "103.00"])
+    expect(view.bids.map((row) => row.quantityLabel)).toEqual(["0.30000000", "1.00000000"])
+    expect(view.asks.map((row) => row.quantityLabel)).toEqual(["0.60000000", "0.50000000"])
+    expect(view.bids.map((row) => row.quantityProportion)).toEqual([0.3, 1])
+    expect(view.asks.map((row) => row.quantityProportion)).toEqual([0.6, 0.5])
+  })
+
+  it("includes deeper raw levels in visible buckets and excludes hidden buckets from bar scaling", () => {
+    const book = createOrderBook({
+      bids: Array.from({ length: 120 }, (_, i) => [`${100 - Math.floor(i / 10)}.${99 - i % 10}`, "0.1"]),
+      asks: Array.from({ length: 120 }, (_, i) => [`${101 + Math.floor(i / 10)}.${10 + i % 10}`, "0.2"]),
+    })
+    applyChanges(book, [["buy", "89.99", "1000"], ["sell", "112.1", "2000"]])
+    const view = createBookView(book, null, "1")
+
+    expect(view.bids.map((row) => row.price)).toEqual([
+      "100", "99", "98", "97", "96", "95", "94", "93", "92", "91",
+    ])
+    expect(view.asks.map((row) => row.price)).toEqual([
+      "102", "103", "104", "105", "106", "107", "108", "109", "110", "111",
+    ])
+    expect(view.bids.every((row) => row.quantity === "1" && row.quantityProportion === 0.5)).toBe(true)
+    expect(view.asks.every((row) => row.quantity === "2" && row.quantityProportion === 1)).toBe(true)
+  })
+
+  it("preserves tiny aggregated quantities with consistent column precision", () => {
+    const view = createBookView(createOrderBook({
+      bids: [["100.1", "0.00000000000000000001"], ["100.2", "0.00000000000000000001"]],
+      asks: [["101.1", "0.00000000000000000001"]],
+    }), null, "1")
+
+    expect(view.bids[0].quantityLabel).toBe("0.00000000000000000002")
+    expect(view.asks[0].quantityLabel).toBe("0.00000000000000000001")
+    expect(view.bids[0].quantityProportion).toBe(1)
+    expect(view.asks[0].quantityProportion).toBe(0.5)
+  })
+
+  it.each(["bids", "asks", "both"] as const)("handles short sides and empty %s", (empty) => {
+    const book = createOrderBook({
+      bids: empty === "bids" || empty === "both" ? [] : [["100.25", "1"]],
+      asks: empty === "asks" || empty === "both" ? [] : [["101.25", "1"]],
+    })
+    const view = createBookView(book, null, "5")
+
+    expect(view.bids.map((row) => row.price)).toEqual(book.bids.size ? ["100"] : [])
+    expect(view.asks.map((row) => row.price)).toEqual(book.asks.size ? ["105"] : [])
+    expect(view.bestBid).toBe(book.bids.size ? "100.25" : null)
+    expect(view.bestAsk).toBe(book.asks.size ? "101.25" : null)
+    expect(view.bestBidLabel).toBe(book.bids.size ? "100.25" : "—")
+    expect(view.bestAskLabel).toBe(book.asks.size ? "101.25" : "—")
+    expect(view.spread).toBeNull()
+    expect(view.spreadLabel).toBe("—")
+    expect(view.receiptLabel).toBe("—")
+    for (const row of [...view.bids, ...view.asks]) {
+      expect(row.quantityProportion).toBe(1)
+    }
+  })
+
+  it("toggles grouping and intervals without mutating the book or earlier views", () => {
+    const book = createOrderBook(snapshot)
+    const original = createOrderBook(snapshot)
+    const raw = createBookView(book, receivedAt)
+    const grouped = createBookView(book, receivedAt, "1")
+    const wider = createBookView(book, receivedAt, "5")
+
+    expect(raw.groupingInterval).toBeNull()
+    expect(wider.bids[0].id).toBe("bids:5:100")
+    expect(wider.asks[0].price).toBe("105")
+    expect(createBookView(book, receivedAt, null)).toEqual(raw)
+    expect(createBookView(book, receivedAt, "1")).toEqual(grouped)
+    expect(book).toEqual(original)
+
+    applyChanges(book, [["buy", "100.991", "0"], ["sell", "101.001", "0"]])
+    const next = createBookView(book, receivedAt + 1, "1")
+
+    expect(next.bestBid).toBe("100.5")
+    expect(next.bestAsk).toBe("101.5")
+    expect(next.spread).toBe("1")
+    expect(next.bids[0].quantity).toBe("0.2")
+    expect(next.asks[0].quantity).toBe("0.4")
+    expect(next.bids[0].id).toBe(grouped.bids[0].id)
+    expect(next.asks[0].id).toBe(grouped.asks[0].id)
+    expect(grouped.bestBid).toBe("100.991")
+    expect(grouped.spread).toBe("0.01")
+    expect(grouped.bids[0].quantity).toBe("0.3")
+    expect(grouped.asks[0].quantity).toBe("0.6")
+  })
+
+  it("validates the grouping interval even when the book is empty", () => {
+    expect(() => createBookView(createOrderBook({ bids: [], asks: [] }), null, "0.5"))
+      .toThrow("Grouping interval must be a positive multiple of £1")
+  })
+})

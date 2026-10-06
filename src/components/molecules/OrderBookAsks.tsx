@@ -3,9 +3,14 @@ import type { BookViewRow } from "../../book/bookView"
 type OrderBookAsksProps = {
   rows: readonly BookViewRow[]
   isWaiting: boolean
+  isGrouped?: boolean
 }
 
-export function OrderBookAsks({ rows, isWaiting }: OrderBookAsksProps) {
+export function OrderBookAsks({
+  rows,
+  isWaiting,
+  isGrouped = false,
+}: OrderBookAsksProps) {
   return (
     <div className="min-w-0 rounded-lg border border-slate-800 bg-slate-900 p-4 sm:p-5">
       <table className="w-full table-fixed text-right text-sm tabular-nums">
@@ -18,10 +23,12 @@ export function OrderBookAsks({ rows, isWaiting }: OrderBookAsksProps) {
               scope="col"
               className="w-1/2 pt-4 pb-3 font-medium pr-3 text-left"
             >
-              Quantity <span className="sr-only">in BTC</span>
+              {isGrouped ? "Bucket quantity" : "Quantity"}{" "}
+              <span className="sr-only">in BTC</span>
             </th>
             <th scope="col" className="w-1/2 pt-4 pb-3 font-medium pl-3">
-              Price <span className="sr-only">in GBP</span>
+              {isGrouped ? "Grouped price" : "Price"}{" "}
+              <span className="sr-only">in GBP</span>
             </th>
           </tr>
         </thead>

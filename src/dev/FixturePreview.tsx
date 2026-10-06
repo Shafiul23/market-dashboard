@@ -53,11 +53,13 @@ const snapshots: Record<string, BookSnapshot> = {
 
 export default function FixturePreview() {
   const [scenario, setScenario] = useState("Populated")
+  const [groupingInterval, setGroupingInterval] = useState("")
   const isWaiting = scenario === "Waiting"
   const isStale = scenario === "Stale"
   const view = createBookView(
     createOrderBook(snapshots[scenario]),
     isWaiting ? null : Date.parse("2026-09-09T14:32:08.123Z"),
+    groupingInterval || null,
   )
 
   return (
@@ -74,6 +76,18 @@ export default function FixturePreview() {
             {Object.keys(snapshots).map((name) => (
               <option key={name}>{name}</option>
             ))}
+          </select>
+          <label htmlFor="grouping">Grouping</label>
+          <select
+            id="grouping"
+            value={groupingInterval}
+            onChange={(event) => setGroupingInterval(event.target.value)}
+            className="rounded border border-slate-600 bg-slate-950 py-1"
+          >
+            <option value="">Off</option>
+            <option value="1">£1 buckets</option>
+            <option value="5">£5 buckets</option>
+            <option value="10">£10 buckets</option>
           </select>
         </div>
       </div>

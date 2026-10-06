@@ -440,3 +440,19 @@ What this does is it allows users to see the liquidity of the orderbook at a lar
     - This identifies already sorted sections, sorts small sections where needed and merges them together O(nlogn) complexity
     - I would like to run some experiments here when I run the profiling tests and see if I can improve performance here
     - The entire book is being sorted and then in groupLevels we slice the top 10 buckets. Might be doing much more work than we need - a heap might be a better way about this use case but will need to test
+
+todo: for specifically the grouping feature - profile how long the big.js functions take and compare what it would be with pure numbers. Note down loss of accuracy too (although this is less important for the grouping feature)
+
+Overall, try to categorize exactly what sections eat up time - e.g., putting the prices into buckets, sorting the buckets, the big.js functions, etc. Use react profiler, performance tabs, console logs and whatever other tool needed to measure these.
+
+### step 19
+
+The purpose of this step is to wire up some of the view derivation with the view logic. Main bulk of the changes in this commit was in bookView.ts, where the book object that is usually passed into selectSideLevels now checks to see if grouping is enabled. If so then we pass the book object into groupLevels where the magic happens.
+
+Few other small changes like changing the headers in the table itself when grouping is turned on.
+
+- groupingInterval added as one of the view option for orderbook props
+- if it is defined, then we pass book and the groupingInterval (will come from a drop down later on) into the groupLevels function from last commit (returns top 10 buckets)
+- new 'headlinePrecision' which checks if grouping is on, then spreads the top bids and top asks into one array, then maps through each price and checks its precision. The function returns how many decimal places the most precise price shows but falls back to 2 as a minimum
+  - todo: check data from coinbase and see what precision they give their data with. Does it vary? if so, this method may still be useful. If not, then it is likely the data is cleaned before it is sent out and would be worth considering if the extra complexity in this app is worth the tradeoff of being defensive. (Or could just pick number of decimal places statically)
+  - Also, best bids and asks are using the displayed array to derive the top prices. This seems like extra work. Will look into moving this derivation earlier in the process where best bid, ask and the spread are calculated before having to know if grouping is true or not (same for both scenarios anyway)

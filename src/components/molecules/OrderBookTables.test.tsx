@@ -3,10 +3,29 @@ import { render, screen, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { createBookView } from "../../book/bookView"
 import { applyChanges, createOrderBook } from "../../book/orderBook"
+import { OrderBook } from "../organisms/OrderBook"
 import { OrderBookAsks } from "./OrderBookAsks"
 import { OrderBookBids } from "./OrderBookBids"
 
 describe("Order book quantity bars", () => {
+  it("labels grouped boundaries and bucket quantities, restoring raw labels when grouping is off", () => {
+    const book = createOrderBook({ bids: [["100.25", "1"]], asks: [["101.25", "2"]] })
+    const { rerender } = render(
+      <OrderBook view={createBookView(book, null, "5")} isWaiting={false} />,
+    )
+
+    expect(screen.getByText(/Up to 10 buckets per side · £5 grouping/)).toBeTruthy()
+    expect(screen.getByText(/Boundaries are not executable quotes/)).toBeTruthy()
+    expect(screen.getAllByRole("columnheader", { name: "Grouped price boundary in GBP" })).toHaveLength(2)
+    expect(screen.getAllByRole("columnheader", { name: "Bucket quantity in BTC" })).toHaveLength(2)
+
+    rerender(<OrderBook view={createBookView(book, null)} isWaiting={false} />)
+
+    expect(screen.queryByText(/Boundaries are not executable quotes/)).toBeNull()
+    expect(screen.getAllByRole("columnheader", { name: "Price in GBP" })).toHaveLength(2)
+    expect(screen.getAllByRole("columnheader", { name: "Quantity in BTC" })).toHaveLength(2)
+  })
+
   it.each(["bids", "asks"] as const)(
     "keeps %s values accessible and row identity stable when bars resize",
     (side) => {

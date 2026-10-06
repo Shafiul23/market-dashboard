@@ -1,5 +1,7 @@
 import { parseDecimal, subtractDecimals } from "../lib/decimal"
 import { formatDecimal, formatReceiptLabel, PLACEHOLDER } from "../lib/format"
+import { groupLevels } from "./groupLevels"
+import type { PriceBucket } from "./groupLevels"
 import { selectTopLevels } from "./orderBook"
 import type { OrderBook, PriceLevel } from "./orderBook"
 
@@ -13,6 +15,7 @@ export type BookViewRow = Readonly<{
 }>
 
 export type BookView = Readonly<{
+  groupingInterval: string | null
   bids: readonly BookViewRow[]
   asks: readonly BookViewRow[]
   bestBid: string | null
@@ -34,9 +37,11 @@ function columnPrecision(values: readonly string[], minimum: number): number {
 export function createBookView(
   book: OrderBook,
   receivedAt: number | null,
+  groupingInterval: string | null = null,
 ): BookView {
   const top = selectTopLevels(book)
-  const levels = [...top.bids, ...top.asks]
+  const displayed = groupingInterval === null ? top : groupLevels(book, groupingInterval)
+  const levels = [...displayed.bids, ...displayed.asks]
   const maximumQuantity = levels.reduce((maximum, level) => {
     const quantity = parseDecimal(level.quantity)
     return quantity.gt(maximum) ? quantity : maximum
@@ -45,14 +50,17 @@ export function createBookView(
     levels.map((level) => level.price),
     2,
   )
+  const headlinePrecision = groupingInterval === null
+    ? pricePrecision
+    : columnPrecision([...top.bids, ...top.asks].map((level) => level.price), 2)
   const quantityPrecision = columnPrecision(
     levels.map((level) => level.quantity),
     8,
   )
 
-  function toRow(level: PriceLevel): BookViewRow {
+  function toRow(level: PriceLevel | PriceBucket): BookViewRow {
     return {
-      id: level.price,
+      id: "id" in level ? level.id : level.price,
       price: level.price,
       quantity: level.quantity,
       priceLabel: formatDecimal(level.price, pricePrecision),
@@ -63,25 +71,26 @@ export function createBookView(
     }
   }
 
-  const bids = top.bids.map(toRow)
-  const asks = top.asks.map(toRow)
-  const bestBid = bids[0]?.price ?? null
-  const bestAsk = asks[0]?.price ?? null
+  const bids = displayed.bids.map(toRow)
+  const asks = displayed.asks.map(toRow)
+  const bestBid = top.bids[0]?.price ?? null
+  const bestAsk = top.asks[0]?.price ?? null
   const spread =
     bestBid === null || bestAsk === null
       ? null
       : subtractDecimals(bestAsk, bestBid)
 
   return {
+    groupingInterval: groupingInterval === null ? null : parseDecimal(groupingInterval).toFixed(),
     bids,
     asks,
     bestBid,
     bestAsk,
     spread,
-    bestBidLabel: bids[0]?.priceLabel ?? PLACEHOLDER,
-    bestAskLabel: asks[0]?.priceLabel ?? PLACEHOLDER,
+    bestBidLabel: bestBid === null ? PLACEHOLDER : formatDecimal(bestBid, headlinePrecision),
+    bestAskLabel: bestAsk === null ? PLACEHOLDER : formatDecimal(bestAsk, headlinePrecision),
     spreadLabel:
-      spread === null ? PLACEHOLDER : formatDecimal(spread, pricePrecision),
+      spread === null ? PLACEHOLDER : formatDecimal(spread, headlinePrecision),
     receiptLabel: formatReceiptLabel(receivedAt),
   }
 }
