@@ -456,3 +456,8 @@ Few other small changes like changing the headers in the table itself when group
 - new 'headlinePrecision' which checks if grouping is on, then spreads the top bids and top asks into one array, then maps through each price and checks its precision. The function returns how many decimal places the most precise price shows but falls back to 2 as a minimum
   - todo: check data from coinbase and see what precision they give their data with. Does it vary? if so, this method may still be useful. If not, then it is likely the data is cleaned before it is sent out and would be worth considering if the extra complexity in this app is worth the tradeoff of being defensive. (Or could just pick number of decimal places statically)
   - Also, best bids and asks are using the displayed array to derive the top prices. This seems like extra work. Will look into moving this derivation earlier in the process where best bid, ask and the spread are calculated before having to know if grouping is true or not (same for both scenarios anyway)
+
+### 19a
+
+- moved best bid, best ask and spread to be calculated as soon as we have the top 10 levels
+  - doesn't make any difference to the speed / work that was being done for non-grouping, but does reduce the work needed to be done when grouping is true

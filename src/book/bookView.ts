@@ -40,7 +40,15 @@ export function createBookView(
   groupingInterval: string | null = null,
 ): BookView {
   const top = selectTopLevels(book)
-  const displayed = groupingInterval === null ? top : groupLevels(book, groupingInterval)
+  const bestBid = top.bids[0]?.price ?? null
+  const bestAsk = top.asks[0]?.price ?? null
+  const spread =
+    bestBid === null || bestAsk === null
+      ? null
+      : subtractDecimals(bestAsk, bestBid)
+
+  const displayed =
+    groupingInterval === null ? top : groupLevels(book, groupingInterval)
   const levels = [...displayed.bids, ...displayed.asks]
   const maximumQuantity = levels.reduce((maximum, level) => {
     const quantity = parseDecimal(level.quantity)
@@ -50,9 +58,13 @@ export function createBookView(
     levels.map((level) => level.price),
     2,
   )
-  const headlinePrecision = groupingInterval === null
-    ? pricePrecision
-    : columnPrecision([...top.bids, ...top.asks].map((level) => level.price), 2)
+  const headlinePrecision =
+    groupingInterval === null
+      ? pricePrecision
+      : columnPrecision(
+          [...top.bids, ...top.asks].map((level) => level.price),
+          2,
+        )
   const quantityPrecision = columnPrecision(
     levels.map((level) => level.quantity),
     8,
@@ -71,24 +83,27 @@ export function createBookView(
     }
   }
 
-  const bids = displayed.bids.map(toRow)
-  const asks = displayed.asks.map(toRow)
-  const bestBid = top.bids[0]?.price ?? null
-  const bestAsk = top.asks[0]?.price ?? null
-  const spread =
-    bestBid === null || bestAsk === null
-      ? null
-      : subtractDecimals(bestAsk, bestBid)
+  const bids = displayed.bids.map((bids) => toRow(bids))
+  const asks = displayed.asks.map((asks) => toRow(asks))
 
   return {
-    groupingInterval: groupingInterval === null ? null : parseDecimal(groupingInterval).toFixed(),
+    groupingInterval:
+      groupingInterval === null
+        ? null
+        : parseDecimal(groupingInterval).toFixed(),
     bids,
     asks,
     bestBid,
     bestAsk,
     spread,
-    bestBidLabel: bestBid === null ? PLACEHOLDER : formatDecimal(bestBid, headlinePrecision),
-    bestAskLabel: bestAsk === null ? PLACEHOLDER : formatDecimal(bestAsk, headlinePrecision),
+    bestBidLabel:
+      bestBid === null
+        ? PLACEHOLDER
+        : formatDecimal(bestBid, headlinePrecision),
+    bestAskLabel:
+      bestAsk === null
+        ? PLACEHOLDER
+        : formatDecimal(bestAsk, headlinePrecision),
     spreadLabel:
       spread === null ? PLACEHOLDER : formatDecimal(spread, headlinePrecision),
     receiptLabel: formatReceiptLabel(receivedAt),
