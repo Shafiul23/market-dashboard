@@ -24,7 +24,7 @@ describe("Order book quantity bars", () => {
       screen.getByText(/Boundaries are not executable quotes/),
     ).toBeTruthy()
     expect(
-      screen.getAllByRole("columnheader", { name: "Grouped price in GBP" }),
+      screen.getAllByRole("columnheader", { name: "Bucket price in GBP" }),
     ).toHaveLength(2)
     expect(
       screen.getAllByRole("columnheader", { name: "Bucket quantity in BTC" }),

@@ -1,25 +1,10 @@
 import { compareDecimals, parseDecimal } from "../lib/decimal"
 import type { OrderBook, PriceLevel } from "./orderBook"
 
-const GROUPING_INCREMENT = "1"
 const VISIBLE_BUCKETS = 10
 
 export type PriceBucket = PriceLevel & {
   readonly id: string
-}
-
-function parseInterval(interval: string) {
-  const message = "Grouping interval must be a positive multiple of £1"
-  let value
-  try {
-    value = parseDecimal(interval)
-  } catch {
-    throw new Error(message)
-  }
-  if (value.lte("0") || !value.mod(GROUPING_INCREMENT).eq("0")) {
-    throw new Error(message)
-  }
-  return value
 }
 
 export function groupSideLevels(
@@ -27,7 +12,7 @@ export function groupSideLevels(
   side: "bids" | "asks",
   interval: string,
 ): PriceBucket[] {
-  const step = parseInterval(interval)
+  const step = parseDecimal(interval)
   const buckets = new Map<string, PriceBucket>()
 
   for (const level of levels.values()) {

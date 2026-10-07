@@ -27,7 +27,7 @@ export function OrderBookAsks({
               <span className="sr-only">in BTC</span>
             </th>
             <th scope="col" className="w-1/2 pt-4 pb-3 font-medium pl-3">
-              {isGrouped ? "Grouped price" : "Price"}{" "}
+              {isGrouped ? "Bucket price" : "Price"}{" "}
               <span className="sr-only">in GBP</span>
             </th>
           </tr>

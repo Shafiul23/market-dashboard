@@ -36,19 +36,6 @@ describe("groupLevels", () => {
     },
   )
 
-  it.each(["0", "-0", "-1", "0.01", "0.5", "1.01", "1.5", "0.001", "", "abc", "NaN", "Infinity"])(
-    "rejects unsupported interval %j even on an empty book", (interval) => {
-      expect(() => groupLevels(createOrderBook({ bids: [], asks: [] }), interval))
-        .toThrow("Grouping interval must be a positive multiple of £1")
-    },
-  )
-
-  it("rejects numeric intervals instead of accepting floating-point input", () => {
-    const book = createOrderBook({ bids: [], asks: [] })
-    // @ts-expect-error Deliberately check the runtime string-only boundary.
-    expect(() => groupLevels(book, 1)).toThrow("positive multiple of £1")
-  })
-
   it("canonicalises bucket identity and distinguishes sides and intervals", () => {
     const book = createOrderBook({ bids: [["100.00", "1"]], asks: [["100", "2"]] })
     const grouped = groupLevels(book, "1")

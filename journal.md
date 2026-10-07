@@ -461,3 +461,10 @@ Few other small changes like changing the headers in the table itself when group
 
 - moved best bid, best ask and spread to be calculated as soon as we have the top 10 levels
   - doesn't make any difference to the speed / work that was being done for non-grouping, but does reduce the work needed to be done when grouping is true
+
+### 19b
+
+- simplified groupLevels.ts. Removed group_increment and parse_interval. It was overly defensive and not needed. The function it served was making sure that later intervals passed in was cleanly divisible by the increment.
+- Now, interval is passed directly into groupsidelevels and parsed there (with big.js) so that it can be used for other calculations. No more rigamarole through parseIntervals.
+
+- Also updated some copy in the orderbook tables and updated the tests

@@ -346,9 +346,4 @@ describe("grouped createBookView", () => {
     expect(grouped.bids[0].quantity).toBe("0.3")
     expect(grouped.asks[0].quantity).toBe("0.6")
   })
-
-  it("validates the grouping interval even when the book is empty", () => {
-    expect(() => createBookView(createOrderBook({ bids: [], asks: [] }), null, "0.5"))
-      .toThrow("Grouping interval must be a positive multiple of £1")
-  })
 })
