@@ -41,7 +41,10 @@ const snapshots: Record<string, BookSnapshot> = {
       ["65000.25", "0.00000000000000000001"],
       ["64999.25", "1000000"],
     ],
-    asks: [["65001.50", "1000000"], ["65002.50", "1"]],
+    asks: [
+      ["65001.50", "1000000"],
+      ["65002.50", "1"],
+    ],
   },
   "Empty bids": { bids: [], asks: populated.asks },
   "Larger values": {
@@ -52,13 +55,9 @@ const snapshots: Record<string, BookSnapshot> = {
 
 export default function FixturePreview() {
   const [scenario, setScenario] = useState("Populated")
-  const [groupingInterval, setGroupingInterval] = useState("")
   const isWaiting = scenario === "Waiting"
   const isStale = scenario === "Stale"
-  const book = useMemo(
-    () => createOrderBook(snapshots[scenario]),
-    [scenario],
-  )
+  const book = useMemo(() => createOrderBook(snapshots[scenario]), [scenario])
 
   return (
     <>
@@ -75,24 +74,11 @@ export default function FixturePreview() {
               <option key={name}>{name}</option>
             ))}
           </select>
-          <label htmlFor="grouping">Grouping</label>
-          <select
-            id="grouping"
-            value={groupingInterval}
-            onChange={(event) => setGroupingInterval(event.target.value)}
-            className="rounded border border-slate-600 bg-slate-950 py-1"
-          >
-            <option value="">Off</option>
-            <option value="1">£1 buckets</option>
-            <option value="5">£5 buckets</option>
-            <option value="10">£10 buckets</option>
-          </select>
         </div>
       </div>
       <Dashboard
         book={book}
         receivedAt={isWaiting ? null : Date.parse("2026-09-09T14:32:08.123Z")}
-        groupingInterval={groupingInterval || null}
         connectionLabel={
           isWaiting ? "Connecting" : isStale ? "Reconnecting" : "Live"
         }

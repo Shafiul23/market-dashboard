@@ -78,6 +78,151 @@ describe("dashboard acceptance flows", () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true)
   })
 
+  it("offers labelled native grouping without reconnecting or refreshing the receipt", () => {
+    const { sockets } = setup()
+    const grouping = screen.getByRole<HTMLSelectElement>("combobox", { name: "Grouping" })
+    expect(grouping.disabled).toBe(false)
+    expect(within(grouping).getAllByRole("option").map((option) => option.textContent))
+      .toEqual(["Off", "£10 buckets", "£100 buckets", "£1000 buckets"])
+    startLive(sockets)
+    expect(grouping.disabled).toBe(false)
+    grouping.focus()
+    expect(document.activeElement).toBe(grouping)
+    const receipt = screen.getByText(/^Last book update:/).textContent
+    act(() => vi.advanceTimersByTime(1000))
+    fireEvent.change(grouping, { target: { value: "10" } })
+    expect(grouping.value).toBe("10")
+    expect(rows("Bids")[0]).toEqual(["100.00", "1.00000000"])
+    expect(rows("Asks")).toEqual([["12.00000000", "110.00"]])
+    expect(screen.getByText(/£10 grouping/)).toBeTruthy()
+    expectOverview("100.00", "100.10", "0.10")
+    expect(screen.getByText(/^Last book update:/).textContent).toBe(receipt)
+    fireEvent.change(grouping, { target: { value: "" } })
+    expect(grouping.value).toBe("")
+    expect(rows("Asks")[0]).toEqual(["1.00000000", "100.10"])
+    expect(sockets).toHaveLength(1)
+    expect(sockets[0].send).toHaveBeenCalledTimes(1)
+  })
+
+  it("remembers grouping before starting and accepts changes while synchronising", () => {
+    const { sockets } = setup()
+    const grouping = screen.getByRole<HTMLSelectElement>("combobox", { name: "Grouping" })
+    fireEvent.change(grouping, { target: { value: "100" } })
+    expect(grouping.value).toBe("100")
+    expect(sockets).toHaveLength(0)
+    startLive(sockets)
+    expect(rows("Asks")).toEqual([["12.00000000", "200.00"]])
+    expect(screen.getByText(/£100 grouping/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop order book" }))
+    fireEvent.click(screen.getByRole("button", { name: "Start order book" }))
+    fireEvent.change(grouping, { target: { value: "1000" } })
+    act(() => {
+      sockets[1].open()
+      sockets[1].message(fullSnapshot)
+    })
+    fireEvent.change(grouping, { target: { value: "" } })
+    expect(grouping.value).toBe("")
+    expect(screen.queryByText(/£100 grouping/)).toBeNull()
+    expect(rows("Asks")[0]).toEqual(["1.00000000", "100.10"])
+    act(() => sockets[1].message(heartbeatMessage))
+    expect(rows("Asks")[0]).toEqual(["1.00000000", "100.10"])
+    expect(screen.queryByText(/£100 grouping/)).toBeNull()
+    expect(sockets).toHaveLength(2)
+  })
+
+  it("regroups the published book immediately without flushing or delaying pending updates", () => {
+    const { sockets } = setup()
+    startLive(sockets)
+    const grouping = screen.getByRole<HTMLSelectElement>("combobox", { name: "Grouping" })
+    const receipt = screen.getByText(/^Last book update:/).textContent
+    act(() => {
+      vi.advanceTimersByTime(1000)
+      sockets[0].message({ ...updateMessage, changes: [["buy", "100", "3"]] })
+      vi.advanceTimersByTime(200)
+    })
+
+    fireEvent.change(grouping, { target: { value: "10" } })
+    expect(rows("Bids")[0]).toEqual(["100.00", "1.00000000"])
+    expect(rows("Asks")).toEqual([["12.00000000", "110.00"]])
+    expect(screen.getByText(/^Last book update:/).textContent).toBe(receipt)
+    act(() => vi.advanceTimersByTime(299))
+    expect(rows("Bids")[0]).toEqual(["100.00", "1.00000000"])
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(rows("Bids")[0]).toEqual(["100.00", "3.00000000"])
+    expect(screen.getByText(/^Last book update:/).textContent).not.toBe(receipt)
+    expect(sockets).toHaveLength(1)
+    expect(sockets[0].send).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(["stop", "reconnect", "hidden", "offline"])(
+    "regroups the retained snapshot on %s until a replacement is usable",
+    (interruption) => {
+      const { sockets } = setup()
+      startLive(sockets)
+      const grouping = screen.getByRole<HTMLSelectElement>("combobox", { name: "Grouping" })
+      fireEvent.change(grouping, { target: { value: "10" } })
+      const receipt = screen.getByText(/^Last book update:/).textContent
+      act(() => sockets[0].message(updateMessage))
+      if (interruption === "stop") {
+        fireEvent.click(screen.getByRole("button", { name: "Stop order book" }))
+        expectStatus("Stopped")
+      } else if (interruption === "hidden") {
+        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden")
+        act(() => document.dispatchEvent(new Event("visibilitychange")))
+        expectStatus("Suspended")
+      } else if (interruption === "offline") {
+        act(() => window.dispatchEvent(new Event("offline")))
+        expectStatus("Reconnecting")
+      } else {
+        act(() => sockets[0].error())
+        expectStatus("Reconnecting")
+      }
+      fireEvent.change(grouping, { target: { value: "100" } })
+
+      function expectRetained() {
+        expect(grouping.disabled).toBe(false)
+        expect(grouping.value).toBe("100")
+        expect(screen.getByText(/£100 grouping/)).toBeTruthy()
+        expect(rows("Bids")).toEqual([
+          ["100.00", "1.00000000"], ["0.00", "11.00000000"],
+        ])
+        expect(rows("Asks")).toEqual([["12.00000000", "200.00"]])
+        expectOverview("100.00", "100.10", "0.10")
+        expect(screen.getByText(/^Last book update:/).textContent).toBe(receipt)
+        expect(screen.getByText(/^Stale data:/)).toBeTruthy()
+      }
+      act(() => vi.advanceTimersByTime(499))
+      expectRetained()
+      if (interruption === "stop") {
+        fireEvent.click(screen.getByRole("button", { name: "Start order book" }))
+      } else if (interruption === "hidden") {
+        vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible")
+        act(() => document.dispatchEvent(new Event("visibilitychange")))
+      } else if (interruption === "offline") {
+        act(() => window.dispatchEvent(new Event("online")))
+      } else act(() => vi.advanceTimersByTime(1))
+      expectStatus("Connecting")
+      expectRetained()
+      act(() => {
+        sockets[1].open()
+        sockets[1].message({ ...snapshotMessage, bids: [["98.25", "4"]], asks: [["102.25", "5"]] })
+      })
+      expectStatus("Synchronising")
+      expectRetained()
+      act(() => sockets[1].message(heartbeatMessage))
+      expectStatus("Live")
+      expect(grouping.disabled).toBe(false)
+      expect(grouping.value).toBe("100")
+      expect(screen.getByText(/£100 grouping/)).toBeTruthy()
+      expect(rows("Bids")).toEqual([["0.00", "4.00000000"]])
+      expect(rows("Asks")).toEqual([["5.00000000", "200.00"]])
+      expectOverview("98.25", "102.25", "4.00")
+      expect(sockets).toHaveLength(2)
+    },
+  )
+
   it("shows loading until a snapshot and heartbeat make the sorted book usable", () => {
     const { sockets } = setup()
     expect(sockets).toHaveLength(0)

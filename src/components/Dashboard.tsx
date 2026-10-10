@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react"
+import { useMemo, useRef, useState } from "react"
 import { createBookView } from "../book/bookView"
 import type { ReadonlyOrderBook } from "../book/orderBook"
 import { DataFreshness } from "./atoms/DataFreshness"
@@ -10,7 +10,6 @@ import { OrderBook } from "./organisms/OrderBook"
 type DashboardProps = {
   book: ReadonlyOrderBook
   receivedAt: number | null
-  groupingInterval?: string | null
   connectionLabel: string
   heartbeatCount?: number
   error?: string | null
@@ -22,7 +21,6 @@ type DashboardProps = {
 export function Dashboard({
   book,
   receivedAt,
-  groupingInterval = null,
   connectionLabel,
   heartbeatCount = 0,
   error,
@@ -31,6 +29,7 @@ export function Dashboard({
   onToggle,
 }: DashboardProps) {
   const dashboardRef = useRef<HTMLElement>(null)
+  const [groupingInterval, setGroupingInterval] = useState<string | null>(null)
   const view = useMemo(
     () => createBookView(book, receivedAt, groupingInterval),
     [book, receivedAt, groupingInterval],
@@ -57,7 +56,11 @@ export function Dashboard({
 
         <MarketOverview view={view} isWaiting={isWaiting} />
 
-        <OrderBook view={view} isWaiting={isWaiting} />
+        <OrderBook
+          view={view}
+          isWaiting={isWaiting}
+          onGroupingChange={setGroupingInterval}
+        />
 
         <footer className="border-t border-slate-800 pt-4 text-sm text-slate-400">
           <ReceiptTime label={view.receiptLabel} />

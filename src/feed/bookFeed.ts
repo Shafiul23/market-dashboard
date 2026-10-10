@@ -180,7 +180,10 @@ export function createBookFeed({
       if (!dirty || !workingBook || !heartbeatReady) return
       state = {
         ...state,
-        book: { bids: new Map(workingBook.bids), asks: new Map(workingBook.asks) },
+        book: {
+          bids: new Map(workingBook.bids),
+          asks: new Map(workingBook.asks),
+        },
         receivedAt: workingBookReceivedAt,
       }
       dirty = false

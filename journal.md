@@ -471,7 +471,7 @@ Few other small changes like changing the headers in the table itself when group
 
 ### step 20a
 
-The purpose of this step was to restructure the architecure of the app. This makes the next step much easier to implement from a data flow perspective. I will explain that change in the next step.
+The purpose of this step was to restructure the architecure of the app. This makes the next step much easier to implement from a data flow perspective.
 
 For now, the main simplification happening in this commit is that the controller now only provides the latest published book to the App layer. Before, it used to provide a calculated view BASED on the book and the view computations were happening on every update.
 
@@ -523,7 +523,16 @@ flowchart TD
 
 ### 20b
 
-- small update to useOrderBook
+Quick and small update more closely to the previous architectural updates and not related to the upcoming grouping control changes
+
 - In the first useEffect, we used to simply track the state coming from the controller using a local React state in the useOrderBook file and pass on state changes from the controller to the app
 - now, if an incoming state object does not contain a published book object, we pass on the previous book object while forwarding the rest of the properties of the state
 - Ultimately, this keeps the last published book visible during start stop cycles and reconnects
+
+### 20c
+
+Finally added the grouping feature to the UI. With all the setup in the commits leading up to this one, the displayed portion of the feature was relatively easy to just slot in.
+
+- Added new GroupingControl - just a select dropdown that allows users to select one of the grouping intervals (currently null, 10, 100 or 1000)
+- the value the user selects is passed up the component tree via the setter prop that is passed down from the dashboard level
+- dashboard keeps track of groupingInterval since it is responsible for generating the view. passes down the setter to orderbook, and orderbook passes it down to groupingcontrol
