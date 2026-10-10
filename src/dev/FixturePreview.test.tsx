@@ -27,7 +27,7 @@ it("switches static fixture rows between exact prices and grouped boundaries wit
     within(firstRow("Asks")).getByRole("cell", { name: "65,005.00" }),
   ).toBeTruthy()
   expect(
-    screen.getAllByRole("columnheader", { name: "Grouped price in GBP" }),
+    screen.getAllByRole("columnheader", { name: "Bucket price in GBP" }),
   ).toHaveLength(2)
   expect(headlineValues()).toEqual(["65,000.25", "65,001.50", "1.25"])
 

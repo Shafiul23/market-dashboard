@@ -3,7 +3,7 @@ import { formatDecimal, formatReceiptLabel, PLACEHOLDER } from "../lib/format"
 import { groupLevels } from "./groupLevels"
 import type { PriceBucket } from "./groupLevels"
 import { selectTopLevels } from "./orderBook"
-import type { OrderBook, PriceLevel } from "./orderBook"
+import type { ReadonlyOrderBook, PriceLevel } from "./orderBook"
 
 export type BookViewRow = Readonly<{
   id: string
@@ -35,7 +35,7 @@ function columnPrecision(values: readonly string[], minimum: number): number {
 }
 
 export function createBookView(
-  book: OrderBook,
+  book: ReadonlyOrderBook,
   receivedAt: number | null,
   groupingInterval: string | null = null,
 ): BookView {

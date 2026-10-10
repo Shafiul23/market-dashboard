@@ -23,6 +23,11 @@ export type OrderBook = {
   asks: Map<string, PriceLevel>
 }
 
+export type ReadonlyOrderBook = {
+  readonly bids: ReadonlyMap<string, PriceLevel>
+  readonly asks: ReadonlyMap<string, PriceLevel>
+}
+
 const VISIBLE_LEVELS = 10
 
 function applyLevel(
@@ -90,7 +95,7 @@ function selectSideLevels(
   return selected
 }
 
-export function selectTopLevels(book: OrderBook): {
+export function selectTopLevels(book: ReadonlyOrderBook): {
   bids: PriceLevel[]
   asks: PriceLevel[]
 } {

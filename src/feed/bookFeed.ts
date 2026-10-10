@@ -1,7 +1,5 @@
-import { createBookView } from "../book/bookView"
-import type { BookView } from "../book/bookView"
 import { applyChanges, createOrderBook } from "../book/orderBook"
-import type { OrderBook } from "../book/orderBook"
+import type { OrderBook, ReadonlyOrderBook } from "../book/orderBook"
 import { COINBASE_PRODUCT, decodeCoinbaseMessage } from "./coinbase"
 import { browserLifecycle } from "./browserLifecycle"
 import type { FeedLifecycle } from "./browserLifecycle"
@@ -33,7 +31,7 @@ export type BookFeedState = Readonly<{
     | "Synchronising"
     | "Live"
     | "Reconnecting"
-  view: BookView
+  book: ReadonlyOrderBook
   isStale: boolean
   receivedAt: number | null
   heartbeatCount: number
@@ -42,7 +40,7 @@ export type BookFeedState = Readonly<{
 
 export const initialBookFeedState: BookFeedState = {
   status: "Connecting",
-  view: createBookView(createOrderBook({ bids: [], asks: [] }), null),
+  book: createOrderBook({ bids: [], asks: [] }),
   isStale: true,
   receivedAt: null,
   heartbeatCount: 0,
@@ -114,9 +112,9 @@ export function createBookFeed({
     if (disposed || !online || !visible) return
     const id = ++attemptId
     let opened = false
-    let book: OrderBook | null = null
+    let workingBook: OrderBook | null = null
     let heartbeatReady = false
-    let bookReceivedAt: number | null = null
+    let workingBookReceivedAt: number | null = null
     let dirty = false
     let phaseDeadline = monotonicNow() + CONNECTION_TIMEOUT_MS
     let heartbeatDeadline = Infinity
@@ -177,12 +175,13 @@ export function createBookFeed({
     }
 
     function publishBook(): void {
+      if (!healthy()) return
       publicationTimer = undefined
-      if (!healthy() || !dirty || !book || !heartbeatReady) return
+      if (!dirty || !workingBook || !heartbeatReady) return
       state = {
         ...state,
-        view: createBookView(book, bookReceivedAt),
-        receivedAt: bookReceivedAt,
+        book: { bids: new Map(workingBook.bids), asks: new Map(workingBook.asks) },
+        receivedAt: workingBookReceivedAt,
       }
       dirty = false
       onChange(state)
@@ -235,19 +234,19 @@ export function createBookFeed({
 
         switch (message.type) {
           case "snapshot": {
-            bookReceivedAt = now()
-            book = createOrderBook(message)
+            workingBookReceivedAt = now()
+            workingBook = createOrderBook(message)
             dirty = true
             break
           }
           case "l2update": {
-            if (!book) {
+            if (!workingBook) {
               throw new Error(
                 "Synchronisation failed: update received before snapshot",
               )
             }
-            bookReceivedAt = now()
-            applyChanges(book, message.changes)
+            workingBookReceivedAt = now()
+            applyChanges(workingBook, message.changes)
             dirty = true
             break
           }
@@ -257,7 +256,7 @@ export function createBookFeed({
             state = { ...state, heartbeatCount: state.heartbeatCount + 1 }
             break
         }
-        const live = book !== null && heartbeatReady
+        const live = workingBook !== null && heartbeatReady
         const becomingLive = live && state.status !== "Live"
         if (becomingLive) {
           phaseDeadline = Infinity

@@ -1,6 +1,5 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Dashboard } from "../components/Dashboard"
-import { createBookView } from "../book/bookView"
 import { createOrderBook } from "../book/orderBook"
 import type { BookSnapshot } from "../book/orderBook"
 
@@ -56,10 +55,9 @@ export default function FixturePreview() {
   const [groupingInterval, setGroupingInterval] = useState("")
   const isWaiting = scenario === "Waiting"
   const isStale = scenario === "Stale"
-  const view = createBookView(
-    createOrderBook(snapshots[scenario]),
-    isWaiting ? null : Date.parse("2026-09-09T14:32:08.123Z"),
-    groupingInterval || null,
+  const book = useMemo(
+    () => createOrderBook(snapshots[scenario]),
+    [scenario],
   )
 
   return (
@@ -92,7 +90,9 @@ export default function FixturePreview() {
         </div>
       </div>
       <Dashboard
-        view={view}
+        book={book}
+        receivedAt={isWaiting ? null : Date.parse("2026-09-09T14:32:08.123Z")}
+        groupingInterval={groupingInterval || null}
         connectionLabel={
           isWaiting ? "Connecting" : isStale ? "Reconnecting" : "Live"
         }

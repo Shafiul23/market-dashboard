@@ -1,14 +1,16 @@
-import { useRef } from "react"
-import type { BookView } from "../book/bookView"
+import { useMemo, useRef } from "react"
+import { createBookView } from "../book/bookView"
+import type { ReadonlyOrderBook } from "../book/orderBook"
 import { DataFreshness } from "./atoms/DataFreshness"
 import { ReceiptTime } from "./atoms/ReceiptTime"
 import { MarketHeader } from "./organisms/MarketHeader"
 import { MarketOverview } from "./organisms/MarketOverview"
 import { OrderBook } from "./organisms/OrderBook"
-import { PLACEHOLDER } from "../lib/format"
 
 type DashboardProps = {
-  view: BookView
+  book: ReadonlyOrderBook
+  receivedAt: number | null
+  groupingInterval?: string | null
   connectionLabel: string
   heartbeatCount?: number
   error?: string | null
@@ -18,7 +20,9 @@ type DashboardProps = {
 }
 
 export function Dashboard({
-  view,
+  book,
+  receivedAt,
+  groupingInterval = null,
   connectionLabel,
   heartbeatCount = 0,
   error,
@@ -27,11 +31,12 @@ export function Dashboard({
   onToggle,
 }: DashboardProps) {
   const dashboardRef = useRef<HTMLElement>(null)
+  const view = useMemo(
+    () => createBookView(book, receivedAt, groupingInterval),
+    [book, receivedAt, groupingInterval],
+  )
 
-  const isWaiting =
-    view.receiptLabel === PLACEHOLDER &&
-    view.bids.length === 0 &&
-    view.asks.length === 0
+  const isWaiting = receivedAt === null
 
   return (
     <main

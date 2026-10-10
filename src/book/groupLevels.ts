@@ -1,5 +1,5 @@
 import { compareDecimals, parseDecimal } from "../lib/decimal"
-import type { OrderBook, PriceLevel } from "./orderBook"
+import type { ReadonlyOrderBook, PriceLevel } from "./orderBook"
 
 const VISIBLE_BUCKETS = 10
 
@@ -44,7 +44,7 @@ export function groupSideLevels(
 }
 
 export function groupLevels(
-  book: OrderBook,
+  book: ReadonlyOrderBook,
   interval: string,
 ): {
   bids: PriceBucket[]

@@ -468,3 +468,55 @@ Few other small changes like changing the headers in the table itself when group
 - Now, interval is passed directly into groupsidelevels and parsed there (with big.js) so that it can be used for other calculations. No more rigamarole through parseIntervals.
 
 - Also updated some copy in the orderbook tables and updated the tests
+
+### step 20a
+
+The purpose of this step was to restructure the architecure of the app. This makes the next step much easier to implement from a data flow perspective. I will explain that change in the next step.
+
+For now, the main simplification happening in this commit is that the controller now only provides the latest published book to the App layer. Before, it used to provide a calculated view BASED on the book and the view computations were happening on every update.
+
+Now, the controller only updates the view when the publishBook function runs but maintains the correctness of the book inside the workingBook object. The App layer recieves the publishedBook and passes it into Dashboard.tsx where THERE it calculates the view.
+
+```mermaid
+flowchart TD
+    WS["WebSocket messages"] --> C["Feed controller"]
+
+    subgraph Controller["Controller responsibilities"]
+        C --> W["Mutable working book"]
+        C --> S["Connection status, heartbeats and errors"]
+        W -->|"Initial readiness, then throttled publication"| P["Published snapshot: copied maps + receivedAt"]
+    end
+
+    P --> H["useOrderBook: stores published feed state"]
+    S --> H
+    H --> A["App: owns start / stop"]
+    A --> D["Dashboard"]
+
+    D --> M["useMemo: createBookView"]
+    M --> O["MarketOverview: exact bid, ask and spread"]
+    M --> T["OrderBook: displayed rows"]
+    M --> R["ReceiptTime"]
+
+    D --> F["Connection and freshness indicators"]
+```
+
+- main changes happening inside bookfeed.ts
+  - bookfeedstate now tracks the book itself, not a calculated view
+    - the view calculations is what invokes all the sorting logic
+  - few variable renames to make intention super clear
+    - book that gets mutates within the controller is now called workingBook
+    - now regular 'book' refers to the object inside the publishbook function that copies the bids and asks from the workingbook and publishes them to the state object
+    - The purpose of this copying is to ensure that the book itself doesn't get mutated after publishing
+      - book and workingbook could very easily work together to bypass the purpose of our caching - even with the correct typing
+      - this is because we derive the published book from the workingBook, so if it was passed to the state object directly, then even though it is readonly, it could update as a result of workingBook getting updated.
+      - this would bypass the useMemo hooks dependency array because the 'book' reference would remain stable, a shallow Object.is check would not notice any changes but deep within the object itself it may be getting mutated.
+      - To avoid this, we copy the workingBook into fresh Maps to create a snapshot in time when we pass the published book into the state object
+- now, in app.tsx we receive the published book object (comes from the state object in the controller and travels through the useOrderBook hook)
+  - we pass this book object into dashboard
+  - dashboard passes the book object into the createBookView function. Before this change, view was calculated inside the controller itself (in the publishBook function)
+  - the view is calculated inside a useMemo hook which allows the result of its calculation to be cached even when dashboard rerenders. It runs the calculation again when book, receivedAt or groupingInterval updates (fails the Object.is check from React)
+  - View is then passed into orderbook as usual where the tables are generated
+- this change does not inherently improve performance. At first glance it may seem like the useMemo hook is optimising the view calculations but this was already considered before the change, since the view was getting calculated only inside the publishBook function which was delayed by the 500 ms publication const.
+  - Instead, the actual benefit to this change will come in the next step when user input will dictate what the view needs to calculat.
+  - If we added grouping changes without this update, the controller would need to be made aware of the grouping interval updates in order to calculate the view
+  - this could become very messy and is not easily followable or maintable. In this new architecture, the controller is only responsible for feeding the application information about a correct book every relevant interval. Then, the dashboard itself can handle the view calculations and take grouping intervals into consideration too
