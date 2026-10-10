@@ -520,3 +520,10 @@ flowchart TD
   - Instead, the actual benefit to this change will come in the next step when user input will dictate what the view needs to calculat.
   - If we added grouping changes without this update, the controller would need to be made aware of the grouping interval updates in order to calculate the view
   - this could become very messy and is not easily followable or maintable. In this new architecture, the controller is only responsible for feeding the application information about a correct book every relevant interval. Then, the dashboard itself can handle the view calculations and take grouping intervals into consideration too
+
+### 20b
+
+- small update to useOrderBook
+- In the first useEffect, we used to simply track the state coming from the controller using a local React state in the useOrderBook file and pass on state changes from the controller to the app
+- now, if an incoming state object does not contain a published book object, we pass on the previous book object while forwarding the rest of the properties of the state
+- Ultimately, this keeps the last published book visible during start stop cycles and reconnects
