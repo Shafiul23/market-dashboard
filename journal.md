@@ -536,3 +536,10 @@ Finally added the grouping feature to the UI. With all the setup in the commits 
 - Added new GroupingControl - just a select dropdown that allows users to select one of the grouping intervals (currently null, 10, 100 or 1000)
 - the value the user selects is passed up the component tree via the setter prop that is passed down from the dashboard level
 - dashboard keeps track of groupingInterval since it is responsible for generating the view. passes down the setter to orderbook, and orderbook passes it down to groupingcontrol
+
+### 20 d
+
+- orderbook was conditionally rendering the grouping controls based on if the setter was defined
+- this was a relic from my first attempt at implementing price grouping by wiring the grouping interval through the controller and calculating the view there (didn't like this implementation so scrapped it)
+  - initial version didn't allow grouping until the data started streaming in. I didn't like this feature either so scrapped it and now selecting the grouping is decoupled from the controller
+- grouping control now always renders

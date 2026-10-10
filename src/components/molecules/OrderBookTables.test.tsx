@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { createBookView } from "../../book/bookView"
 import { applyChanges, createOrderBook } from "../../book/orderBook"
 import { OrderBook } from "../organisms/OrderBook"
@@ -13,8 +13,9 @@ describe("Order book quantity bars", () => {
       bids: [["100.25", "1"]],
       asks: [["101.25", "2"]],
     })
+    const onGroupingChange = vi.fn()
     const { rerender } = render(
-      <OrderBook view={createBookView(book, null, "5")} isWaiting={false} />,
+      <OrderBook view={createBookView(book, null, "5")} isWaiting={false} onGroupingChange={onGroupingChange} />,
     )
 
     expect(
@@ -30,7 +31,7 @@ describe("Order book quantity bars", () => {
       screen.getAllByRole("columnheader", { name: "Bucket quantity in BTC" }),
     ).toHaveLength(2)
 
-    rerender(<OrderBook view={createBookView(book, null)} isWaiting={false} />)
+    rerender(<OrderBook view={createBookView(book, null)} isWaiting={false} onGroupingChange={onGroupingChange} />)
 
     expect(
       screen.queryByText(/Boundaries are not executable quotes/),

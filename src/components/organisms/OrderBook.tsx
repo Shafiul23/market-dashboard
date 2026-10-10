@@ -6,7 +6,7 @@ import { OrderBookBids } from "../molecules/OrderBookBids"
 type OrderBookProps = {
   view: Pick<BookView, "bids" | "asks" | "groupingInterval">
   isWaiting: boolean
-  onGroupingChange?: (interval: string | null) => void
+  onGroupingChange: (interval: string | null) => void
 }
 
 export function OrderBook({
@@ -27,14 +27,12 @@ export function OrderBook({
             ? `Up to 10 buckets per side · £${view.groupingInterval} grouping`
             : "10 levels per side"}
         </p>
-        {onGroupingChange && (
-          <div className="ml-auto">
-            <GroupingControl
-              interval={view.groupingInterval}
-              onChange={onGroupingChange}
-            />
-          </div>
-        )}
+        <div className="ml-auto">
+          <GroupingControl
+            interval={view.groupingInterval}
+            onChange={onGroupingChange}
+          />
+        </div>
       </div>
       {isGrouped && (
         <p className="mt-1 text-sm text-slate-400">
