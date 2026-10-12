@@ -34,8 +34,6 @@ export function groupSideLevels(
     })
   }
 
-  // todo: assess sorting during profiling
-  // replace with a heap that manages the top 10 (or top VISIBLE_BUCKETS) and measure differences
   return [...buckets.values()].sort((left, right) =>
     side === "bids"
       ? compareDecimals(right.price, left.price)

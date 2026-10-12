@@ -28,3 +28,9 @@ PLAN.md
 
 # Local validation notes
 /docs/
+
+# Local performance reports and optional browser automation
+/performance-experiments.md
+/output/playwright/
+/scripts/run-performance.mjs
+/src/dev/runPacedExperiment.tsx

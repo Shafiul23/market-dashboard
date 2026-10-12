@@ -477,28 +477,7 @@ For now, the main simplification happening in this commit is that the controller
 
 Now, the controller only updates the view when the publishBook function runs but maintains the correctness of the book inside the workingBook object. The App layer recieves the publishedBook and passes it into Dashboard.tsx where THERE it calculates the view.
 
-```mermaid
-flowchart TD
-    WS["WebSocket messages"] --> C["Feed controller"]
-
-    subgraph Controller["Controller responsibilities"]
-        C --> W["Mutable working book"]
-        C --> S["Connection status, heartbeats and errors"]
-        W -->|"Initial readiness, then throttled publication"| P["Published snapshot: copied maps + receivedAt"]
-    end
-
-    P --> H["useOrderBook: stores published feed state"]
-    S --> H
-    H --> A["App: owns start / stop"]
-    A --> D["Dashboard"]
-
-    D --> M["useMemo: createBookView"]
-    M --> O["MarketOverview: exact bid, ask and spread"]
-    M --> T["OrderBook: displayed rows"]
-    M --> R["ReceiptTime"]
-
-    D --> F["Connection and freshness indicators"]
-```
+[Feed-to-view data flow diagram](journal-figures.md#feed-to-view-data-flow)
 
 - main changes happening inside bookfeed.ts
   - bookfeedstate now tracks the book itself, not a calculated view
@@ -543,3 +522,55 @@ Finally added the grouping feature to the UI. With all the setup in the commits 
 - this was a relic from my first attempt at implementing price grouping by wiring the grouping interval through the controller and calculating the view there (didn't like this implementation so scrapped it)
   - initial version didn't allow grouping until the data started streaming in. I didn't like this feature either so scrapped it and now selecting the grouping is decoupled from the controller
 - grouping control now always renders
+
+### step 21
+
+The purpose of this step was to run some experiments, measure how long different aspects of the app take and ultimately make a decision about how to progress from this stage. While developing the app I noted down a few places that could be more efficient, e.g., sorting the buckets using a top-k insertion sort instead of what I'm doing now (spreading bucket into an array and then sorting it using javascripts .sort()).
+
+Also, using big.js for every single step involved in price grouping. These are places in the app I wanted to go back to and measure how long it takes, then assess if the tradeoff is worth it (e.g., code complexity vs speed, or more accuracy in big.js decimals vs faster processing with javascript Number)
+
+I set up the test using mock batches of 1000 prices for bids and asks, then shuffled them around. I passed this data into existing functions where relevant, and created sibling functions that produce similar outcomes but with a different plumbing to test out my hypothesis (e.g., a price grouping function that uses the top-k insertion sort instead of sorting all the buckets). The updates happen 20 times per second and the updates also contained 1000 prices. Based on the real data I observed from the actual Coinbase websocket (small sample size of observations), the test had slightly more volume.
+
+The real data had about 1000 prices in each bid and ask array in the initial snapshot, then about 10-20 prices in each update. However, to really test the application I also added an option to mock 10,000 prices per side in the initial snapshot and 10,000 prices (combined) in each subsequent update too. This highlighted the difference between certain algorithms and methods but I would like to note here that it is unlikely the application would be dealing with this kind of traffic in real time.
+
+How it works:
+
+- Loads of helper functions, will explain their purpose instead of a line by line breakdown like I do with 'production' code (not actually pushed anywhere yet)
+- syntheticSnapshot will take in a depth value from the dropdown and create two arrays with a size equal to the depth. The array is then populated with prices, then ordered using a fixed seeded shuffle.
+- syntheticChanges is the mock function that returns what an update might look like from coinbase.Tt takes in a depth and update number to make sure depth is maintained while updating. This is the function that is passed into the existing applyChanges function to mutate our book
+- sortTopLevels is a test-only function - not implemented in the actual code. What it does is takes our bid and ask maps, splits it into arrays then sorts the entire thing using javascripts built in sort. Code wise this is much simpler than what actually happens in the code but I wanted to measure the differences
+  - in the actual code we maintain an array of the 10 best prices while comparing every new price in the bid or ask arrays against this top 10 array. Better prices are slotted in. This is slightly more complex than just sorting every price and slicing the top 10 but is more efficient in theory, since we're only actively sorting the top 10 and don't really care about the prices outside of the array.
+- the new summarize function just takes in our samples, sorts them and then returns the median, p95 and max values
+
+- runSynthetic is the main meat of this commit / test. It is responsible for running the experiment and measuring how long each part that we're interested in takes
+  - when starting the test, it will create the mock book object and run the initial tests like the deocding of data, updates, copying, view calculation and rendering
+  - first, 5 publication windows are processed but then discarded as a warm up
+  - then 30 measured windows using performance.now() contain 300 incoming updates and 30 publications
+  - The update cadence aims for 50 ms intervals and publications are set to happen every 10 updates, so about 500 ms.
+  - after it mocks what a real run might look like, it then runs the alternatives I am interested in.
+  - some of these exist in a different file: bucketExperiment.ts, but essentially its just the experiments I mentioned in the introducing paragraphs - full sorting vs bounded top 10 insertion, big.js vs Number.
+- finally, it returns an array of all of the relevant information. It takes around 18 seconds for the paced workload then about another 15 seconds for the algorithm comparisons
+
+[Performance comparison runs](journal-figures.md#performance-comparison-runs)
+
+### experiment breakdown
+
+Ran a lot of different experiments with the results posted in a separate markdown, linked about. Below are some of the conclusions that can be made about the data, weaknesses of the tests, and next steps.
+
+1. base run returned non-suprising results. At 1000 prices per side, 1000 updates and no throttling, performance was very stable. Median work across 3 runs was 25.6 ms so well below our budget.
+
+- When increasing workload to 10,000 depth, then work increased to 79.6 ms so still easily handled by the app and not much difference
+- At 10,000 depth and 10,000 updates, work increased to 190.6 which is now quite a substantial increase from baseline. Updates were still happening at 20 per second but the cost clearly starting getting expensive here. Note: this is an incredibly high work load and unlikely to happen in real life based on my tests with the data coming in from coinbase.
+- At the same work as above but on a 4x cpu throttle, the app really struggled. Work was getting delayed by 7s at its worst which is far greater than the 500 ms publication window. This is definitely a breaking point, and if I were to run this experiment again I would double the work until it failed the a test, (e.g., p95 greater than 550 ms) then use binary search to find the exact breaking point under each condition. So doubling work until failure, then halving the last range and subtracting it from the failure point. Continue going with this process until a capacity is found. However, for the purposes of progressing the application, noting this limit with low accuracy is enough.
+
+2. alternatives returned some interesting results
+
+- baseline conditions with Big.js used in the aggregation of prices into buckets, and sorting all the buckets in an array took about 25.6 ms of work. Off the bat, we can see that existing conditions is already blazing fast, especially in comparison to the 500 ms publication window.
+- when switching to using javascript Number for our prices that get grouped into buckets, then work drops to about 21 ms. It did drop on average but again, in the grand scheme of things, quite insignificant.
+- big.js with a bounded top ten approach took about 25.7, almost indistinguishable from the baseline test - the sort method barely made a difference. Even when increasing the stress of the appliation, this change in algorithm only improved median speed by about 15 ms when the cpu was throttled with a higher load.
+- Most interesting result from this experiment was stressing the application and then comparing the big.js aggregating with the Number aggregating (both using current sort method). The big.js test took 610 ms under stress and the Number version took 532 ms. Quite a decent improvement but to achieve this we had to stress the application a silly amount (4x cpu throttle + 20000 snapshot + 10000 updates)
+  - The reason for this is because big.js is more accurate at the cost of storage. It takes each digit of a number, takes note of its exponent and places it into an array. Then applies operations in an exponent that is easier to work with, creates a results array, then returns reverts the answer into its appropriate exponent.
+  - Every time a price is compared against a bucket boundary, the price was parsed into a big.js decimal, then divided against the group integer, then one more arithmatic step based on if it is an ask or a bid price. Lots of work there in comparison to using the native Number from javascript, which can perform these operations natively at the cost of some accuracy for certain numbers at extreme precisions.
+- Overall, neither the sorting method nor the bucket aggregation method significantly improved enough to justify updating.
+- side note: using Number did lose some accuracy in extreme cases, e.g., prices with a very high number of decimal places would sometimes fall into the wrong bucket, but this alone wouldn't be a big enough downside to not implement it if the performance upgrade was worth it.
+  - this is because price grouping is an intentional loss of accuracy in the first place. Users choosing to activate this feature wants to see the market at larger volumes of liquidity. They want to be able to step back and see how much activity is happening further away from the best prices.

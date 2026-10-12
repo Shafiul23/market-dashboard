@@ -18,7 +18,12 @@ function logFlow(...args: unknown[]) {
   if (LOG_DATA_FLOW) console.log(...args)
 }
 
-function setup(trace = false, random = vi.fn(() => 0), initiallyOnline = true, initiallyVisible = true) {
+function setup(
+  trace = false,
+  random = vi.fn(() => 0),
+  initiallyOnline = true,
+  initiallyVisible = true,
+) {
   const sockets: FakeSocket[] = []
   const createSocket = vi.fn(() => {
     const socket = new FakeSocket()
@@ -44,8 +49,14 @@ function setup(trace = false, random = vi.fn(() => 0), initiallyOnline = true, i
       JSON.stringify({
         status: state.status,
         receivedAt: state.receivedAt,
-        bids: [...state.book.bids.values()].map(({ price, quantity }) => [price, quantity]),
-        asks: [...state.book.asks.values()].map(({ price, quantity }) => [price, quantity]),
+        bids: [...state.book.bids.values()].map(({ price, quantity }) => [
+          price,
+          quantity,
+        ]),
+        asks: [...state.book.asks.values()].map(({ price, quantity }) => [
+          price,
+          quantity,
+        ]),
         error: state.error,
       }),
     )
@@ -104,8 +115,12 @@ describe("createBookFeed", () => {
     socket.message({
       ...updateMessage,
       changes: [
-        ["buy", "100", "0"], ["buy", "99", "6"], ["buy", "88", "3"],
-        ["sell", "101", "0"], ["sell", "102", "7"], ["sell", "113", "4"],
+        ["buy", "100", "0"],
+        ["buy", "99", "6"],
+        ["buy", "88", "3"],
+        ["sell", "101", "0"],
+        ["sell", "102", "7"],
+        ["sell", "113", "4"],
       ],
     })
     vi.advanceTimersByTime(499)
@@ -143,7 +158,9 @@ describe("createBookFeed", () => {
       const previous = latest()
       const timers = vi.spyOn(globalThis, "setTimeout")
       socket.message(updateMessage)
-      const oldPublication = timers.mock.calls.find(([, delay]) => delay === 500)![0] as () => void
+      const oldPublication = timers.mock.calls.find(
+        ([, delay]) => delay === 500,
+      )![0] as () => void
       if (interruption === "failure") socket.error()
       else if (interruption === "hidden") events.hidden()
       else dispose()
@@ -156,10 +173,17 @@ describe("createBookFeed", () => {
       if (interruption === "failure") vi.advanceTimersByTime(500)
       else events.visible()
       sockets[1].open()
-      sockets[1].message({ ...snapshotMessage, bids: [["90.25", "4"]], asks: [] })
+      sockets[1].message({
+        ...snapshotMessage,
+        bids: [["90.25", "4"]],
+        asks: [],
+      })
       expect(latest().book).toBe(previous.book)
       sockets[1].message(heartbeatMessage)
-      expect([...latest().book.bids.values()][0]).toMatchObject({ price: "90.25", quantity: "4" })
+      expect([...latest().book.bids.values()][0]).toMatchObject({
+        price: "90.25",
+        quantity: "4",
+      })
       sockets[1].message({ ...updateMessage, changes: [["buy", "90.25", "6"]] })
       const recovered = latest()
       oldPublication()
@@ -186,13 +210,19 @@ describe("createBookFeed", () => {
       expect(latest()).toMatchObject({ status: "Suspended", isStale: true })
       expect(latest().book).toBe(previous.book)
       expect(socket.close).toHaveBeenCalledTimes(1)
-      expect([socket.onopen, socket.onmessage, socket.onerror, socket.onclose])
-        .toEqual([null, null, null, null])
+      expect([
+        socket.onopen,
+        socket.onmessage,
+        socket.onerror,
+        socket.onclose,
+      ]).toEqual([null, null, null, null])
       expect(vi.getTimerCount()).toBe(0)
       const count = onChange.mock.calls.length
       events.hidden()
       events.online()
-      lateMessage(new MessageEvent("message", { data: JSON.stringify(snapshotMessage) }))
+      lateMessage(
+        new MessageEvent("message", { data: JSON.stringify(snapshotMessage) }),
+      )
       vi.advanceTimersByTime(60_000)
       expect(onChange).toHaveBeenCalledTimes(count)
       expect(sockets).toHaveLength(1)
@@ -206,8 +236,14 @@ describe("createBookFeed", () => {
       expect(latest().isStale).toBe(true)
       expect(latest().book).toBe(previous.book)
       sockets[1].message({ ...snapshotMessage, bids: [["99", "4"]], asks: [] })
-      expect(latest()).toMatchObject({ status: "Live", isStale: false, error: null })
-      expect([...latest().book.bids.values()].map(({ price }) => price)).toEqual(["99"])
+      expect(latest()).toMatchObject({
+        status: "Live",
+        isStale: false,
+        error: null,
+      })
+      expect(
+        [...latest().book.bids.values()].map(({ price }) => price),
+      ).toEqual(["99"])
       dispose()
     },
   )
@@ -231,7 +267,12 @@ describe("createBookFeed", () => {
   )
 
   it("starts suspended when hidden and cannot resume after disposal", () => {
-    const { events, sockets, latest, dispose } = setup(false, vi.fn(() => 0), true, false)
+    const { events, sockets, latest, dispose } = setup(
+      false,
+      vi.fn(() => 0),
+      true,
+      false,
+    )
     expect(latest().status).toBe("Suspended")
     expect(sockets).toHaveLength(0)
     expect(vi.getTimerCount()).toBe(0)
@@ -376,7 +417,9 @@ describe("createBookFeed", () => {
     now.mockReturnValue(2000)
     socket.message({ ...snapshotMessage, bids: [["99", "4"]], asks: [] })
     vi.advanceTimersByTime(500)
-    expect([...latest().book.bids.values()].map(({ price }) => price)).toEqual(["99"])
+    expect([...latest().book.bids.values()].map(({ price }) => price)).toEqual([
+      "99",
+    ])
     expect(latest().book.asks).toEqual(new Map())
     expect(latest().receivedAt).toBe(2000)
   })
@@ -421,10 +464,22 @@ describe("createBookFeed", () => {
     vi.advanceTimersByTime(1)
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(latest().receivedAt).toBe(2039)
-    expect([...latest().book.bids.values()].map(({ price, quantity }) => [price, quantity]))
-      .toEqual(Array.from({ length: 40 }, (_, i) => [String(100 - i), String(i + 2)]))
-    expect([...latest().book.asks.values()].map(({ price, quantity }) => [price, quantity]))
-      .toEqual(Array.from({ length: 40 }, (_, i) => [String(101 + i), String(i + 3)]))
+    expect(
+      [...latest().book.bids.values()].map(({ price, quantity }) => [
+        price,
+        quantity,
+      ]),
+    ).toEqual(
+      Array.from({ length: 40 }, (_, i) => [String(100 - i), String(i + 2)]),
+    )
+    expect(
+      [...latest().book.asks.values()].map(({ price, quantity }) => [
+        price,
+        quantity,
+      ]),
+    ).toEqual(
+      Array.from({ length: 40 }, (_, i) => [String(101 + i), String(i + 3)]),
+    )
 
     for (let i = 0; i < 30; i++) {
       now.mockReturnValue(3000 + i)
@@ -442,10 +497,22 @@ describe("createBookFeed", () => {
     vi.advanceTimersByTime(1)
     expect(onChange).toHaveBeenCalledTimes(2)
     expect(latest().receivedAt).toBe(3029)
-    expect([...latest().book.bids.values()].map(({ price, quantity }) => [price, quantity]))
-      .toEqual(Array.from({ length: 10 }, (_, i) => [String(70 - i), String(i + 32)]))
-    expect([...latest().book.asks.values()].map(({ price, quantity }) => [price, quantity]))
-      .toEqual(Array.from({ length: 10 }, (_, i) => [String(131 + i), String(i + 33)]))
+    expect(
+      [...latest().book.bids.values()].map(({ price, quantity }) => [
+        price,
+        quantity,
+      ]),
+    ).toEqual(
+      Array.from({ length: 10 }, (_, i) => [String(70 - i), String(i + 32)]),
+    )
+    expect(
+      [...latest().book.asks.values()].map(({ price, quantity }) => [
+        price,
+        quantity,
+      ]),
+    ).toEqual(
+      Array.from({ length: 10 }, (_, i) => [String(131 + i), String(i + 33)]),
+    )
 
     expect(onChange.mock.calls[0][0].book.bids.size).toBe(40)
     expect(onChange.mock.calls[0][0].book.asks.size).toBe(40)
@@ -516,7 +583,9 @@ describe("createBookFeed", () => {
         expect(latest().book).toBe(previous.book)
       }
       const count = onChange.mock.calls.length
-      expect(vi.getTimerCount()).toBe(event === "offline" || event === "dispose" ? 0 : 1)
+      expect(vi.getTimerCount()).toBe(
+        event === "offline" || event === "dispose" ? 0 : 1,
+      )
       vi.advanceTimersByTime(450)
       expect(onChange).toHaveBeenCalledTimes(count)
     },
@@ -836,7 +905,9 @@ describe("createBookFeed", () => {
         receivedAt: 2000,
         error: null,
       })
-      expect([...latest().book.bids.values()].map(({ price }) => price)).toEqual(["99"])
+      expect(
+        [...latest().book.bids.values()].map(({ price }) => price),
+      ).toEqual(["99"])
       expect(latest().book.asks).toEqual(new Map())
       expect([...previous.book.bids.values()][0].price).toBe("100")
     },

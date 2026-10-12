@@ -25,6 +25,15 @@ empty-bid and larger-value states. Fixtures share the real
 `src/dev/FixturePreview.tsx` to try other sample values. This entry is excluded
 from the production build.
 
+To measure performance, run `npm run dev` and open `/fixtures.html?load`.
+Choose depth, changes per update and display grouping, then click **Start synthetic
+run**. It uses the production algorithms with synthetic inputs and reports
+median/p95/max timings as copyable Markdown. No exchange connection is used.
+Runs target 20 updates/sec and a publication every ten updates, with five warm-up
+windows and 30 measured windows. Keep the tab visible; repeat with optional
+DevTools CPU throttling and note the browser/machine settings.
+See [recorded results and methodology](journal-figures.md#performance-comparison-runs).
+
 ## Data flow and recovery
 
 Many crypto exchanges offer a free tier web socket api that provides high volume,
