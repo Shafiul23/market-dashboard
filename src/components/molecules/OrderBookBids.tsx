@@ -12,12 +12,12 @@ export function OrderBookBids({
   isGrouped = false,
 }: OrderBookBidsProps) {
   return (
-    <div className="min-w-0 rounded-lg border border-slate-800 bg-slate-900 p-4 sm:p-5">
+    <div className="min-w-0 rounded-lg border border-divider bg-surface-table p-4 sm:p-5">
       <table className="w-full table-fixed text-right text-sm tabular-nums">
-        <caption className="border-b border-slate-700 pb-4 text-left text-base font-semibold text-emerald-400">
+        <caption className="border-b border-divider pb-4 text-left text-base font-semibold text-positive">
           Bids
         </caption>
-        <thead className="text-slate-300">
+        <thead className="text-secondary">
           <tr>
             <th
               scope="col"
@@ -32,7 +32,7 @@ export function OrderBookBids({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800">
+        <tbody className="divide-y divide-divider">
           {rows.map((row) => (
             <tr key={row.id}>
               <td className="relative py-2 wrap-anywhere pr-3 text-left">
@@ -41,7 +41,7 @@ export function OrderBookBids({
               <td className="relative py-2 wrap-anywhere pl-3">
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-1 rounded-sm right-0 bg-emerald-500/15"
+                  className="pointer-events-none absolute inset-y-1 rounded-sm right-0 bg-positive-subtle"
                   style={{ width: `${row.quantityProportion * 100}%` }}
                 />
                 <span className="relative">{row.quantityLabel}</span>
@@ -50,7 +50,7 @@ export function OrderBookBids({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={2} className="py-10 text-center text-slate-400">
+              <td colSpan={2} className="py-10 text-center text-muted">
                 {isWaiting ? "Waiting for data." : "No bids available."}
               </td>
             </tr>

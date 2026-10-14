@@ -16,7 +16,7 @@ export function GroupingControl({ interval, onChange }: GroupingControlProps) {
         id={id}
         value={interval ?? ""}
         onChange={(event) => onChange(event.target.value || null)}
-        className="rounded border border-slate-600 bg-slate-950 px-2 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+        className="rounded border border-control bg-background px-2 py-1 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
       >
         <option value="">Off</option>
         {GROUPING_INTERVALS.map((value) => (

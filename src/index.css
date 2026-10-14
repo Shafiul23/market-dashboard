@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+@theme {
+  /* Page, panels, menus, and hover states */
+  --color-background: #111111;
+  --color-surface: #1a1a18;
+  --color-surface-table: #1a1a1a;
+  --color-surface-raised: #242420;
+  --color-surface-hover: #2d2d27;
+
+  /* Dividers versus visible control boundaries */
+  --color-divider: #36362f;
+  --color-control: #77776b;
+
+  /* Text hierarchy: text-primary, text-secondary, text-muted */
+  --color-primary: #f5f5ef;
+  --color-secondary: #c2c2b5;
+  --color-muted: #969689;
+
+  /* Habee brand */
+  --color-accent: #f7ce46;
+  --color-accent-hover: #ffdd67;
+  --color-accent-pressed: #e5b932;
+  --color-accent-subtle: #302a18;
+  --color-on-accent: #111111;
+  --color-focus-ring: #f7ce46;
+
+  /* Market data and status */
+  --color-positive: #34d399;
+  --color-positive-subtle: #1b3d2e;
+  --color-negative: #fb7185;
+  --color-negative-subtle: #48262c;
+  --color-warning: #f7ce46;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    background-color: var(--color-background);
+    color: var(--color-primary);
+  }
+}

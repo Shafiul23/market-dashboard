@@ -9,8 +9,8 @@ export function DataFreshness({ isStale, isWaiting }: DataFreshnessProps) {
       id="data-freshness"
       className={`rounded-lg border p-4 text-sm ${
         isStale && !isWaiting
-          ? "border-amber-700 bg-amber-950 text-amber-200"
-          : "border-slate-800 text-slate-300"
+          ? "border-warning bg-accent-subtle"
+          : "border-divider text-secondary"
       }`}
     >
       {isWaiting

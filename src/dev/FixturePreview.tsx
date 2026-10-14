@@ -61,14 +61,14 @@ export default function FixturePreview() {
 
   return (
     <>
-      <div className="border-b border-slate-700 bg-slate-900 p-4 text-sm text-slate-100">
+      <div className="border-b border-divider bg-surface p-4 text-sm text-primary">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3">
           <label htmlFor="fixture">Fixture preview · Sample data</label>
           <select
             id="fixture"
             value={scenario}
             onChange={(event) => setScenario(event.target.value)}
-            className="rounded border border-slate-600 bg-slate-950 py-1"
+            className="rounded border border-control bg-background py-1"
           >
             {Object.keys(snapshots).map((name) => (
               <option key={name}>{name}</option>

@@ -43,11 +43,11 @@ export function FullscreenToggle({ targetRef }: FullscreenToggleProps) {
         type="button"
         onClick={toggleFullscreen}
         aria-pressed={isFullscreen}
-        className="rounded border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+        className="rounded border border-control bg-surface-raised px-4 py-2 text-sm font-medium hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
       >
         {isFullscreen ? "Close full screen" : "Expand dashboard"}
       </button>
-      {error && <p role="alert" className="mt-2 text-sm text-rose-400">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-negative">{error}</p>}
     </div>
   )
 }

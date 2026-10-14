@@ -32,9 +32,9 @@ export function FeedStatus({
   return (
     <section
       aria-label="Diagnostics"
-      className="min-w-0 rounded-lg border border-slate-700 bg-slate-900 text-sm text-slate-300 shadow-sm sm:w-64"
+      className="min-w-0 rounded-lg border border-divider bg-surface text-sm text-secondary shadow-sm sm:w-64"
     >
-      <p className="rounded-t-lg border-b border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+      <p className="rounded-t-lg border-b border-divider bg-surface-raised px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted">
         Diagnostics
       </p>
       <div
@@ -53,9 +53,9 @@ export function FeedStatus({
             fill="none"
             stroke="currentColor"
             aria-hidden="true"
-            className="h-10 w-full overflow-hidden text-emerald-400"
+            className="h-10 w-full overflow-hidden text-positive"
           >
-            <path d="M0 20 H240" className="text-slate-700" />
+            <path d="M0 20 H240" className="text-divider" />
             <path
               ref={pulseRef}
               d="M0 20 H108 L114 24 L120 8 L126 30 L132 20 H240"
@@ -69,7 +69,7 @@ export function FeedStatus({
             />
           </svg>
         </div>
-        {error && <p className="wrap-anywhere text-amber-200">{error}</p>}
+        {error && <p className="wrap-anywhere text-warning">{error}</p>}
       </div>
     </section>
   )

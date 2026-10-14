@@ -21,7 +21,7 @@ export function OrderBook({
         Order book
       </h2>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Prices in GBP · Quantities in BTC ·{" "}
           {isGrouped
             ? `Up to 10 buckets per side · £${view.groupingInterval} grouping`
@@ -35,7 +35,7 @@ export function OrderBook({
         </div>
       </div>
       {isGrouped && (
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-muted">
           Grouped price boundaries: bids rounded down, asks rounded up.{" "}
           Boundaries are not executable quotes. Best bid, best ask and spread
           use exact prices.

@@ -40,7 +40,7 @@ export function Dashboard({
   return (
     <main
       ref={dashboardRef}
-      className="group min-h-screen overflow-y-auto bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 sm:py-12 [&:fullscreen]:h-screen"
+      className="group min-h-screen overflow-y-auto bg-background px-4 py-8 text-primary sm:px-6 sm:py-12 [&:fullscreen]:h-screen"
     >
       <div className="mx-auto max-w-5xl space-y-8 group-[:fullscreen]:max-w-none">
         <MarketHeader
@@ -62,7 +62,7 @@ export function Dashboard({
           onGroupingChange={setGroupingInterval}
         />
 
-        <footer className="border-t border-slate-800 pt-4 text-sm text-slate-400">
+        <footer className="border-t border-divider pt-4 text-sm text-muted">
           <ReceiptTime label={view.receiptLabel} />
         </footer>
       </div>

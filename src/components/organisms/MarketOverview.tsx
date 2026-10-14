@@ -23,9 +23,9 @@ export function MarketOverview({ view, isWaiting }: MarketOverviewProps) {
         ].map(({ label, value }) => (
           <div
             key={label}
-            className="min-w-0 rounded-lg border border-slate-800 bg-slate-900 p-5"
+            className="min-w-0 rounded-lg border border-divider bg-surface p-5"
           >
-            <dt className="text-sm text-slate-300">{label} / GBP</dt>
+            <dt className="text-sm text-secondary">{label} / GBP</dt>
             <dd className="mt-3 text-right text-3xl font-medium tabular-nums wrap-anywhere">
               {value === PLACEHOLDER ? (
                 <>

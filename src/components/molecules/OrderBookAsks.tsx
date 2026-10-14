@@ -12,12 +12,12 @@ export function OrderBookAsks({
   isGrouped = false,
 }: OrderBookAsksProps) {
   return (
-    <div className="min-w-0 rounded-lg border border-slate-800 bg-slate-900 p-4 sm:p-5">
+    <div className="min-w-0 rounded-lg border border-divider bg-surface-table p-4 sm:p-5">
       <table className="w-full table-fixed text-right text-sm tabular-nums">
-        <caption className="border-b border-slate-700 pb-4 text-right text-base font-semibold text-rose-400">
+        <caption className="border-b border-divider pb-4 text-right text-base font-semibold text-negative">
           Asks
         </caption>
-        <thead className="text-slate-300">
+        <thead className="text-secondary">
           <tr>
             <th
               scope="col"
@@ -32,13 +32,13 @@ export function OrderBookAsks({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800">
+        <tbody className="divide-y divide-divider">
           {rows.map((row) => (
             <tr key={row.id}>
               <td className="relative py-2 wrap-anywhere pr-3 text-left">
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-1 rounded-sm left-0 bg-rose-500/15"
+                  className="pointer-events-none absolute inset-y-1 rounded-sm left-0 bg-negative-subtle"
                   style={{ width: `${row.quantityProportion * 100}%` }}
                 />
                 <span className="relative">{row.quantityLabel}</span>
@@ -50,7 +50,7 @@ export function OrderBookAsks({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={2} className="py-10 text-center text-slate-400">
+              <td colSpan={2} className="py-10 text-center text-muted">
                 {isWaiting ? "Waiting for data." : "No asks available."}
               </td>
             </tr>
