@@ -17,8 +17,9 @@
   --color-secondary: #c2c2b5;
   --color-muted: #969689;
 
-  /* Habee brand */
+  /* Brand */
   --color-accent: #f7ce46;
+  --color-accent-text: #f7ce46;
   --color-accent-hover: #ffdd67;
   --color-accent-pressed: #e5b932;
   --color-accent-subtle: #302a18;
@@ -26,6 +27,7 @@
   --color-focus-ring: #f7ce46;
 
   /* Market data and status */
+  --color-heartbeat: #34d399;
   --color-positive: #34d399;
   --color-positive-subtle: #1b3d2e;
   --color-negative: #fb7185;
@@ -38,5 +40,29 @@
     color-scheme: dark;
     background-color: var(--color-background);
     color: var(--color-primary);
+  }
+
+  /* Brand in daylight; the gold control colours stay the same. */
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --color-background: #f7f5ed;
+    --color-surface: #fffef9;
+    --color-surface-table: #fffef9;
+    --color-surface-raised: #eeeadc;
+    --color-surface-hover: #e4decb;
+    --color-divider: #d6d0bd;
+    --color-control: #857c65;
+    --color-primary: #22221d;
+    --color-secondary: #514e41;
+    --color-muted: #6c6757;
+    --color-accent-text: #806000;
+    --color-accent-subtle: #fff0bd;
+    --color-focus-ring: #806000;
+    --color-heartbeat: #16c76a;
+    --color-positive: #08734f;
+    --color-positive-subtle: #aed7ba;
+    --color-negative: #b42342;
+    --color-negative-subtle: #eba6b3;
+    --color-warning: #806000;
   }
 }

@@ -574,3 +574,9 @@ Ran a lot of different experiments with the results posted in a separate markdow
 - Overall, neither the sorting method nor the bucket aggregation method significantly improved enough to justify updating.
 - side note: using Number did lose some accuracy in extreme cases, e.g., prices with a very high number of decimal places would sometimes fall into the wrong bucket, but this alone wouldn't be a big enough downside to not implement it if the performance upgrade was worth it.
   - this is because price grouping is an intentional loss of accuracy in the first place. Users choosing to activate this feature wants to see the market at larger volumes of liquidity. They want to be able to step back and see how much activity is happening further away from the best prices.
+
+### step 22
+
+- Updated theme to match the app I made last year. Also added a light mode which can be toggled from the new NavBar
+- NavBar stores preference for theme in local storage so refreshes don't reset the preference.
+- Found a cool website that let me tweak the colour of the quantity bars: https://www.colorhexa.com/

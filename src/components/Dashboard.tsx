@@ -6,6 +6,7 @@ import { ReceiptTime } from "./atoms/ReceiptTime"
 import { MarketHeader } from "./organisms/MarketHeader"
 import { MarketOverview } from "./organisms/MarketOverview"
 import { OrderBook } from "./organisms/OrderBook"
+import { NavBar } from "./organisms/NavBar"
 
 type DashboardProps = {
   book: ReadonlyOrderBook
@@ -28,7 +29,7 @@ export function Dashboard({
   enabled = false,
   onToggle,
 }: DashboardProps) {
-  const dashboardRef = useRef<HTMLElement>(null)
+  const dashboardRef = useRef<HTMLDivElement>(null)
   const [groupingInterval, setGroupingInterval] = useState<string | null>(null)
   const view = useMemo(
     () => createBookView(book, receivedAt, groupingInterval),
@@ -38,34 +39,37 @@ export function Dashboard({
   const isWaiting = receivedAt === null
 
   return (
-    <main
+    <div
       ref={dashboardRef}
-      className="group min-h-screen overflow-y-auto bg-background px-4 py-8 text-primary sm:px-6 sm:py-12 [&:fullscreen]:h-screen"
+      className="group min-h-screen overflow-y-auto bg-background text-primary [&:fullscreen]:h-screen"
     >
-      <div className="mx-auto max-w-5xl space-y-8 group-[:fullscreen]:max-w-none">
-        <MarketHeader
-          connectionLabel={connectionLabel}
-          heartbeatCount={heartbeatCount}
-          error={error}
-          onToggle={onToggle}
-          enabled={enabled}
-          fullscreenTargetRef={dashboardRef}
-        />
+      <NavBar />
+      <main className="px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto max-w-5xl space-y-8 group-[:fullscreen]:max-w-none">
+          <MarketHeader
+            connectionLabel={connectionLabel}
+            heartbeatCount={heartbeatCount}
+            error={error}
+            onToggle={onToggle}
+            enabled={enabled}
+            fullscreenTargetRef={dashboardRef}
+          />
 
-        <DataFreshness isStale={isStale} isWaiting={isWaiting} />
+          <DataFreshness isStale={isStale} isWaiting={isWaiting} />
 
-        <MarketOverview view={view} isWaiting={isWaiting} />
+          <MarketOverview view={view} isWaiting={isWaiting} />
 
-        <OrderBook
-          view={view}
-          isWaiting={isWaiting}
-          onGroupingChange={setGroupingInterval}
-        />
+          <OrderBook
+            view={view}
+            isWaiting={isWaiting}
+            onGroupingChange={setGroupingInterval}
+          />
 
-        <footer className="border-t border-divider pt-4 text-sm text-muted">
-          <ReceiptTime label={view.receiptLabel} />
-        </footer>
-      </div>
-    </main>
+          <footer className="border-t border-divider pt-4 text-sm text-muted">
+            <ReceiptTime label={view.receiptLabel} />
+          </footer>
+        </div>
+      </main>
+    </div>
   )
 }

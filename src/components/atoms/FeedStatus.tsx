@@ -53,7 +53,7 @@ export function FeedStatus({
             fill="none"
             stroke="currentColor"
             aria-hidden="true"
-            className="h-10 w-full overflow-hidden text-positive"
+            className="h-10 w-full overflow-hidden text-heartbeat"
           >
             <path d="M0 20 H240" className="text-divider" />
             <path

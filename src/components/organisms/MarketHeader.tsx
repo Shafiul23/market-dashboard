@@ -23,7 +23,7 @@ export function MarketHeader({
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <p className="text-sm font-medium text-accent">
+        <p className="text-sm font-medium text-accent-text">
           Coinbase · Market dashboard
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
