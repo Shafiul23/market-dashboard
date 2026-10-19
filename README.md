@@ -1,7 +1,7 @@
 # Market Dashboard
 
 A React + TypeScript order book built with Vite and Tailwind
-CSS. This project was created to familiarise with the world of web sockets, high volume data and maintaining an accurate display.
+CSS. This project was created to familiarise myself with the world of web sockets, high volume data and maintaining an accurate display.
 
 ## Development
 
@@ -25,16 +25,18 @@ empty-bid and larger-value states. Fixtures share the real
 `src/dev/FixturePreview.tsx` to try other sample values. This entry is excluded
 from the production build.
 
-To measure performance, run `npm run dev` and open `/fixtures.html?load`.
-Choose depth, changes per update and display grouping, then click **Start synthetic
-run**. It uses the production algorithms with synthetic inputs and reports
-median/p95/max timings as copyable Markdown. No exchange connection is used.
-Runs target 20 updates/sec and a publication every ten updates, with five warm-up
-windows and 30 measured windows. Keep the tab visible; repeat with optional
-DevTools CPU throttling and note the browser/machine settings.
-See [recorded results and methodology](journal-figures.md#performance-comparison-runs).
+Run **`npm run perf`** with Google Chrome installed to benchmark the full Dashboard
+offline. It builds the app and runs baseline and stress workloads once
+each at 4× CPU slowdown. Allow about 75 seconds, longer under overload.
+The terminal summary and `output/playwright/profile/latest.md` report freshness,
+main-thread blocking, CPU work and initial snapshot processing, with pass/fail
+budgets. There is no previous-run comparison. A failed budget returns exit code 1
+after saving results. Use `npm run perf -- --repeat 3` for three repetitions each
+(about four minutes).
+See the [benchmark protocol](src/dev/benchmark-fixtures.md) for inputs, definitions
+and limitations. No exchange connection or fixture-generation command is needed.
 
-## Data flow and recovery
+## How it works
 
 Many crypto exchanges offer a free tier web socket api that provides high volume,
 streamable data. The data in particular that this application is built for is
@@ -49,7 +51,7 @@ Decimal arithmetic uses `big.js`; price and quantity values remain decimal
 strings. Headlines and table rows come from the same published view.
 
 Opening a connection moves from Connecting to Synchronising. Live requires both
-a snapshot and a heartbeat from that attempt. Updates are tracked in an internal book and published every 200 ms; connection failures are reported
+a snapshot and a heartbeat from that attempt. Updates are tracked in an internal book and published every 500 ms; connection failures are reported
 immediately. The receipt label is the local receipt time of the last accepted
 book message, displayed in UTC. Heartbeats do not advance it, and it is not an
 exchange timestamp or a latency measurement. Heartbeats arrive from the exchange to indicate a healthy connection. The diagnostics panel shows a pulse monitor which triggers an animation everytime a heartbeat message comes through.

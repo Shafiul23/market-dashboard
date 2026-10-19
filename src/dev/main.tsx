@@ -4,7 +4,7 @@ import FixturePreview from "./FixturePreview"
 import LoadPreview from "./LoadPreview"
 import "../index.css"
 
-// Avoid Strict Mode's repeated development renders in the isolated benchmark.
+// Avoid Strict Mode's repeated development effects in the benchmark.
 createRoot(document.getElementById("root")!).render(
   new URLSearchParams(location.search).has("load")
     ? <LoadPreview />

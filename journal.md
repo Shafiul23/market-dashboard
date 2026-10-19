@@ -580,3 +580,63 @@ Ran a lot of different experiments with the results posted in a separate markdow
 - Updated theme to match the app I made last year. Also added a light mode which can be toggled from the new NavBar
 - NavBar stores preference for theme in local storage so refreshes don't reset the preference.
 - Found a cool website that let me tweak the colour of the quantity bars: https://www.colorhexa.com/
+
+### step 23
+
+I wanted to revisit the benchmarks recorded for the app. In my first attempt, a lot of the experimentation was about algorithmic differences. This time round, I wanted to set up a super easy to reproduce test, just one command that sets off a headless browser and measures the time it takes between an update through to a DOM commit. In the last test I only measured a much smaller slice of the entire application. This did provide some interesting results, but this time around I am curious to find the bottlenecks of the application.
+
+This required a lot of tests, planning and changes. This particular step has taken many days of development because I wanted to be specific about exactly what is being measured in these tests, what constitutes 'failure' for a frontend application, and what I would like my benchmarks to measure. With these benchmarks, I can now apply the features I would like to experiment and see how it affects performance.
+
+For example, the performance tab highlights that the parsing on this app can be a 'long task' when cpu is throttled by 4x. The first thing I would like to revisit is the big.js parsing - where can it be skipped? How can we ensure correctness without big.js? Can we speed this up in any way without sacrificing accuracy?
+
+New benchmarks:
+
+- the time taken for each update to commit to the DOM, sorted in order. New script reports the 95th percentile of this ranking to represent how long an update takes
+  - reminder: updates are stored in the working book and not immediately published. Therefore, some updates will look like it took considerably longer than others but that is only because of publication throttling.
+- also includes the longest update to commit to see what blocked the main thread the most
+- main thread task time - measures tasks in ms per second
+- how long the initial snapshot took to process
+- how long each update took to process (p95 + worst time)
+
+Failure case:
+
+- p95 update to commit > 650 ms
+  - since the updates are ranked in speed and we're using the p95 value, it essentially means that if most of the updates happen blazingly fast but the slowest 5th percentile of updates took longer than 650 ms from update to dom commit.
+  - this is because what is being measured here is:
+    - update arriving
+    - decoding, validating, updating book
+    - waiting for publication (longest)
+    - copying the book that is going to be committed
+    - react scheduling and rendering the update
+    - dashboard calling view calculation
+    - react updating DOM
+  - if all of this takes longer than 650 ms in the 5th percentile, then this is too long. Admittedly, the value is arbitrary and does not describe any explicit boundary about the application (e.g., the app doesn't completely crash and fail > 650 ms per update) but it a chosen constant to compare different runs with.
+- worst update to commit > 1000 ms
+- longest task > 100 ms
+
+Default test:
+
+- will start with 1,000 levels per side, and 10% of levels per side will be the changes per update, so 100 here. Along with a default stress test of 10,000 levels to run after the baseline.
+  - this can be tweaked by using the load flag
+  - npm run perf -- --load 5000
+  - this will use 5,000 levels per side and 500 changes per update
+  - upper limit is 100,000
+- Can also use a repeat flag to run the experiment 3 times
+  - this takes much longer to run but can produce results that are less likely to be affected by issues in one-off runs
+  - default is still just 1 run
+
+The reason I chose these variables to measure is because the application does not benefit from simply being faster by a few ms in certain operations on its own. This is because the publication timer is set to 500 ms so the actual computations that affect the end user are around this region. How long it takes for the book to process a change and then commit this visually is much more important, so this context must be included when deciding to make changes.
+
+The previous tests I ran were interesting to assess algorithmic bottlenecks but upon running those experiments I discovered that there were no significant bottlenecks regarding HOW the information was sorted.
+
+This time around, the benchmarks are set up to explain the state of the application and produces a pass or fail which makes it much easier to reason over.
+
+For example, I ran the bench mark a few times to get some data about the current state of the application. With the default settings, the test runs a baseline version with 1000 levels per side and another run with 10,000, the report showed that the application failed to meet the benchmark goals in the stress test. p95 and worst commit were just below the threshold but longest task took 102 ms. p95 update was just below 650 ms and worst update took 680 ms. I then lowered the load to 9,000 levels per side and the report returned a pass. All measurements came back within the threshold.
+
+Weaknesses:
+
+- These tests stop at DOM commits. It does not measure time taken for the browser to paint the changes.
+- the failure threshold could be caused by a lot of things. 500 ms publication timer and a 650 ms failure threshold for updates -> commits means that updates that arrive early within the publication window will have around 150 ms to account for any timer delays, book copying, react rendering and DOM commits.
+- load increases both snapshot size and number of changes per update. These invoke different methods and may contribute towards slowdowns at different rates based on load
+
+The purpose of these tests are to compare different ideas I have later on - to measure the difference in speed and capability of the app with different features and architectures. It is not to get a 100% accurate timing of the app, so this is a noted weakness.

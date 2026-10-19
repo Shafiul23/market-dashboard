@@ -47,7 +47,7 @@ export const initialBookFeedState: BookFeedState = {
   error: null,
 }
 
-type BookFeedOptions = {
+export type BookFeedOptions = {
   onChange: (state: BookFeedState) => void
   createSocket?: (url: string) => FeedSocket
   now?: () => number

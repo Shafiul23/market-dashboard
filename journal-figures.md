@@ -97,3 +97,35 @@ For example, with £10 grouping, bid `9.999999999999999999` belongs in bucket `0
 ### Future measurements
 
 The retained harness at `/fixtures.html?load` measures the current production algorithms with independent depth, update-size and grouping controls. Run it with `npm run dev`, keep the tab visible, and optionally apply DevTools CPU throttling before starting. Record the settings and repeat runs before comparing results. The one-off Number and bounded-selection implementations have been removed; the tables above record those historical experiments. Optional browser automation and the original per-run JSON remain local and ignored.
+
+### some test runs
+Synthetic workload: 20 scheduled updates/sec, publication every ten updates (500 ms target). Fixed seeded shuffle. Development build, Strict Mode off.
+Five warm-up publication windows discarded; 30 measured windows (300 updates) per scenario. Both book sides are included.
+
+10000 levels/side; 10000 changes/update (both sides combined); display grouping 10.
+Observed delivery: 14.63 updates/sec; max lateness 6646.400 ms; measured paced phase 20767.0 ms.
+
+| Operation                             | Samples | Median ms |  p95 ms |  Max ms |
+| ------------------------------------- | ------: | --------: | ------: | ------: |
+| Decode one update batch               |     300 |    15.600 |  17.900 |  29.200 |
+| Apply one update batch                |     300 |    17.400 |  19.000 |  40.600 |
+| Copy book for publication             |      30 |     3.100 |   3.500 |   3.600 |
+| Build book view (inclusive)           |      30 |   257.900 | 264.700 | 268.000 |
+| Order book React + DOM commit         |      30 |    20.100 |  23.000 |  23.700 |
+| Work per ten updates + publication    |      30 |   619.500 | 647.300 | 653.600 |
+| Elapsed per ten updates + publication |      30 |   687.500 | 712.100 | 721.700 |
+| Publication interval                  |      30 |   687.500 | 712.100 | 721.700 |
+
+Work per ten updates sums decode/apply and one copy/view/render, including timing overhead; elapsed also includes waiting and fixture generation. Work includes the individual operations above it; do not add all rows.
+React + DOM commit uses flushSync, includes wrapper overhead, excludes layout/paint and the rest of Dashboard. This driver is not the real feed scheduler or a live latency measurement. Late updates remain queued, with no drops.
+Record browser, machine and CPU throttling. Repeat runs; scheduling, JIT and garbage collection can affect results.
+
+## Repeatable performance experiments
+
+The current `npm run perf` command runs two offline workloads through the full
+Dashboard at 4× CPU slowdown, once each by default, with optional `--repeat 3`
+and no previous-run comparison. See the [benchmark protocol](src/dev/benchmark-fixtures.md) for
+inputs, pass/fail budgets, metric definitions and output locations.
+
+Historical experiments above used different workloads and measurement boundaries;
+their results are not directly comparable with the current benchmark.
