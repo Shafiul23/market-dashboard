@@ -640,3 +640,26 @@ Weaknesses:
 - load increases both snapshot size and number of changes per update. These invoke different methods and may contribute towards slowdowns at different rates based on load
 
 The purpose of these tests are to compare different ideas I have later on - to measure the difference in speed and capability of the app with different features and architectures. It is not to get a 100% accurate timing of the app, so this is a noted weakness.
+
+### step 24
+
+Wanted to take my new benchmarks for a spin. First, I ran the app and recorded performance using devtools for a few seconds. In the bottom up tree, it said that the parse method from big.js was the task that had the longest self time (showed about 40 ms).
+
+First, I ran a baseline test using my benchmarks - default load and 3 repeats. I was only interested in the message handling for this experiment. For 1000 levels per side, the median p95 was 0.3 ms and longest time was 0.4 ms. For the stress version with 10000 levels per side, the median was 1.3 ms for p95 and 1.7 ms for longest time.
+
+What this means is the time it takes for an update message being decoded, validated and applied to the working book was about 1-2 ms. This is a healthy speed, since updates come in every 50 ms. Of course, there are other factors to consider like the main thread being busy with other things, and in live data may contain bursts that require more processing.
+
+Next, I combed through the app to see if there was anywhere the parsing time could be reduced. In coinbase.ts, there is a function called isPrice. In this function, it passes a value into the isQuantity function first, then passes it into compareDecimals along with "0". isQuantity checks if a value passed in is a string and contains one or more digits. It also can have some optional traits like a decimal point, and one or more digits after that point. This is how we expect the quantities to come in from coinbase but this check also applies to prices. The only difference is we don't want price to ever be 0 or negative. Quantity only checks if a value is negative (would reject this) but definitely accepts 0's - this is how coinbase indicates that a price level no longer exists.
+
+If the value for price passes the isQuantity check, it then moves onto the compareDecimals function. This is where the inefficiency was. compareDecimals passes in the price to parseDecimal and turns the string into a Big object (from big.js), then it passes in the "0" value and compares the two. If price is less than or equal to 0 then it is rejected from the isPrice function (returns false).
+
+This is quite an inefficient way to check if a string is positive AFTER it has already gone through the isQuantity check.
+
+In this refactor, the compareDecimal check is replaced with a simple regex check to see if the string contains the digits 1-9 in it. The reason for this is because if it was already an invalid number, it would have been rejected by the isQuantity function. However, if it was just 0, it wouldn't be rejected. By checking to see that it has at least one digit in the entire string between 1 and 9, we are proving that it is a positive number. "0.00000" would pass the quantity check but because there are no digits 1-9, isPrice would reject this. "0.01" DOES have a digit so it'll pass.
+
+I ran the test again and the numbers improved: baseline test p95 median took 0.2 ms (compared to 0.3 ms). longest update took 0.6 ms (up from 0.4 ms). In the stress test, p95 dropped to 1.2 ms (from 1.3 ms) and 1.6 ms for longest time (down from 1.7 ms)
+
+1. these are very small improvements but for something happening so many times per second, not having to invoke compareDecimals inside isPrice is a theoretical optimisation
+2. the measured improvement was negligible and even contained a slowdown in one category - but this could include run to run variation.
+3. in the grand scheme of the application, probably not a change that'll affect the user in any way but a fun exercise in using the new benchmarks to change, test and measure.
+4. later discovered that the '40 ms' I saw on the bottom up tree in chrome describes the aggregate time the parse function was called over the recorded window, which was about 3 seconds. This makes the 40 ms number seem quite good in comparison to what I thought it meant initially.

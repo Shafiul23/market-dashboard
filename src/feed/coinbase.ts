@@ -1,5 +1,4 @@
 import type { BookChange, BookSnapshot, SnapshotLevel } from "../book/orderBook"
-import { compareDecimals } from "../lib/decimal"
 
 export const COINBASE_PRODUCT = "BTC-GBP"
 
@@ -38,7 +37,7 @@ function isQuantity(value: unknown): value is string {
 }
 
 function isPrice(value: unknown): value is string {
-  return isQuantity(value) && compareDecimals(value, "0") > 0
+  return isQuantity(value) && /[1-9]/.test(value)
 }
 
 function isSnapshotLevel(value: unknown): value is SnapshotLevel {
