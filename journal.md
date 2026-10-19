@@ -663,3 +663,27 @@ I ran the test again and the numbers improved: baseline test p95 median took 0.2
 2. the measured improvement was negligible and even contained a slowdown in one category - but this could include run to run variation.
 3. in the grand scheme of the application, probably not a change that'll affect the user in any way but a fun exercise in using the new benchmarks to change, test and measure.
 4. later discovered that the '40 ms' I saw on the bottom up tree in chrome describes the aggregate time the parse function was called over the recorded window, which was about 3 seconds. This makes the 40 ms number seem quite good in comparison to what I thought it meant initially.
+
+### step 25
+
+I'm still seeing a 'long task' on the performance tab which means something in the thread is taking longer than 50 ms. This isn't too drastic considering my 500 ms publication throttle, but I would still like to optimise this application where I can.
+
+One place that has an inefficiency is in selectSideLevels. I already explained this function in this journal (a while ago) but I'll briefly go over it again.
+
+The function keeps an empty array on standby, then iterates through all the values inside the Map that is passed to it from selectTopLevels -> from createBookView. This basically just passes in a canonical price as a key, and an object of price and quantity as a value.
+
+The function loops through all the values in the map, then loops through each level inside each value. This level contains a price and quantity string.
+
+Next, it loops through the array I mentioned at the start, and if any current price from the book object has a better price than the one being looked at from the array, its index is used in the next block of if statements.
+
+The way 'better' is decided is by comparing the current price and the price inside the array. for bids, if the current price is higher than the stored price, its better. For asks, if its lower than the stored price, then its better.
+
+If the array isn't full yet then this new price is pushed right in. If it is full then the current price is spliced right into the index it was found to be better than. If this made the array longer than the visible levels cap, the last entry is popped out.
+
+The problem with this method is it loops through the selected index from first index to last, and if a price is worse than the last position, then it will still get compared to every price in the array.
+
+What I changed in this refactor is the current price is checked against the LAST entry in the selected array. If it is already worse than this price, then we break the for loop that compares the current price against all the entries in selected, instead of looping through all of them.
+
+This applies to a LOT of prices (most prices will not be better than the 10th best price)
+
+I ran the benchmarks for this refactor and it has shown quite a promising improvement. With the stressed load and 3 repeats, the median p95 update and longest update was 544 ms and 548 ms. As a reminder, my baseline before this had the same measurements at 648 ms and 680 ms respectively.

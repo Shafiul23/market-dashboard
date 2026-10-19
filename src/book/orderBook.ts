@@ -79,10 +79,25 @@ function selectSideLevels(
   const selected: PriceLevel[] = []
 
   for (const level of levels.values()) {
-    const index = selected.findIndex((current) => {
-      const comparison = compareDecimals(level.price, current.price)
-      return side === "bids" ? comparison > 0 : comparison < 0
-    })
+    let index = -1
+    for (let i = selected.length - 1; i >= 0; i--) {
+      const comparison = compareDecimals(level.price, selected[i].price)
+
+      if (
+        (side === "bids" && comparison <= 0) ||
+        (side === "asks" && comparison >= 0)
+      ) {
+        break
+      }
+
+      if (side === "bids" && comparison > 0) {
+        index = i
+      }
+
+      if (comparison < 0) {
+        index = i
+      }
+    }
 
     if (index === -1) {
       if (selected.length < VISIBLE_LEVELS) selected.push(level)
