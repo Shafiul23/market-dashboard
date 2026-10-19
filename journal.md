@@ -664,6 +664,26 @@ I ran the test again and the numbers improved: baseline test p95 median took 0.2
 3. in the grand scheme of the application, probably not a change that'll affect the user in any way but a fun exercise in using the new benchmarks to change, test and measure.
 4. later discovered that the '40 ms' I saw on the bottom up tree in chrome describes the aggregate time the parse function was called over the recorded window, which was about 3 seconds. This makes the 40 ms number seem quite good in comparison to what I thought it meant initially.
 
+### web worker experiment
+
+I wanted to see how a web worker might affect performance of the app so I made a new branch. First, I refactored the app to go back to producing a view inside the controller itself. The reason for this is because web workers live in a separate thread and cannot make dom updates themselves. To get around this, the worker computes what it needs to, then sends messages over to the main thread (kind of like a psuedo backend). The heaviest process in this app would be maintaining the book and producing the views, but in the current state of the app this lives in two separate places. The book is maintained by the controller which publishes a snapshot around every 500 ms. The app then receives the snapshot and computes a view based on it.
+
+In order to implement a web worker, I moved the view calculation back into the controller. This meant that if a user changed the grouping interval, it would have to travel back into the controller so this interval could be used to calculate the bucket boundaries and do all the sorting to compute that view.
+
+The next step was to add the worker itself, however, there were a few problems. A worker cannot access the document object from the browser. This means my lifecycle listeners that looks out for different events, like someone switching tabs, could no longer be handled purely from the controller. Now, the app forwards the visibility events, on top of the grouping mentioned earlier and the start /stop + connectivity that it already did.
+
+I ran the benchmarks with the new web worker, set to default load and 3 repeats. When comparing these results to my baseline test, the differences were remarkably small. No single measurement varied by more than +- 10 ms.
+
+What this tells me is that a web worker wasn't very suitable for this application in order to improve performance in a meaningful way.
+
+I was already suspicious of this, since my understanding of web workers was to move expensive calculations to a different thread so that the main thread wasn't blocked from doing something else. It doesn't magically improve performance or double speed, its use case is quite specific. The expensive calculation box was ticked, since being responsible for the socket, maintaining a correct book, calculating the view are all pretty heavy tasks, but the main thread on this application wasn't doing much else - so moving it to a web worker didn't improve performance much.
+
+Furthermore, it complicated the architecure and reversed the work I did a few commits ago where I made an effort to simplify the data flow of the application and made the responsibilities more clear. I separated view generation from book maintenance.
+
+One benefit from this change is that no memoisation needed to be used here, which can add complexity and slight overhead (although probably negligible) to a project.
+
+However, I ultimately believe that this change added more complexity for no measurable benefit other than a fun experiment into a feature I find interesting. I won't be merging the branch into main and will be keeping the current architecture with its clear responsibilities + memoisation.
+
 ### step 25
 
 I'm still seeing a 'long task' on the performance tab which means something in the thread is taking longer than 50 ms. This isn't too drastic considering my 500 ms publication throttle, but I would still like to optimise this application where I can.
@@ -687,3 +707,5 @@ What I changed in this refactor is the current price is checked against the LAST
 This applies to a LOT of prices (most prices will not be better than the 10th best price)
 
 I ran the benchmarks for this refactor and it has shown quite a promising improvement. With the stressed load and 3 repeats, the median p95 update and longest update was 544 ms and 548 ms. As a reminder, my baseline before this had the same measurements at 648 ms and 680 ms respectively.
+
+todo: check parsing logic. Some of the same numbers are parsed multiple times and parse is being flagged up on the performance tab.
