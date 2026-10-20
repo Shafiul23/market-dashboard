@@ -15,6 +15,10 @@ export function compareDecimals(left: string, right: string): -1 | 0 | 1 {
   return parseDecimal(left).cmp(parseDecimal(right))
 }
 
+export function compareParsedDecimals(left: Big, right: Big): -1 | 0 | 1 {
+  return left.cmp(right)
+}
+
 export function subtractDecimals(left: string, right: string): string {
   return parseDecimal(left).minus(parseDecimal(right)).toFixed()
 }

@@ -709,3 +709,19 @@ This applies to a LOT of prices (most prices will not be better than the 10th be
 I ran the benchmarks for this refactor and it has shown quite a promising improvement. With the stressed load and 3 repeats, the median p95 update and longest update was 544 ms and 548 ms. As a reminder, my baseline before this had the same measurements at 648 ms and 680 ms respectively.
 
 todo: check parsing logic. Some of the same numbers are parsed multiple times and parse is being flagged up on the performance tab.
+
+### step 26
+
+In select side levels, a book object is passed in and the values are looped through. Every price level is checked against the selected array (top 10 levels array). In this process, the level price is parsed, then the current price in the selected array is parsed when they are passed into the compareDecimals function. This means the same level price is parsed up to 10 times while it is being compared against the existing array. Similarly, if the best 10 prices are found immediately, they are all also parsed while making every comparison.
+
+The fix in this commit was to cache some of the parses where sensible. I first did this by creating a new function in decimal.ts where I compare two Big.js objects, instead of taking in two strings and THEN parsing them. This allowed me to pass in parsed prices.
+
+Next, I parsed the level price on the outer loop. Now this is the one that is compared with the prices in the array, instead of having to parse it every time a comparison is made.
+
+Lastly, I added a 'parsedPrice' array to keep track of the top 10 prices alongside the selected array (reminder: this one keeps track of price LEVELS, which are objects that house a price and its quantity - for this caching step, only the price was relevant)
+
+What this means for selectsidelevels now is that level price is parsed only once when being compared against the best prices array. Similarly, all the prices in the array only get parsed once too.
+
+In the benchmarks, the median times did improve but marginally. All improvements were around the < 1 ms range which isn't large enough to confidently conclude that this change sped up the application.
+
+The reason for this, I predict, is because the previous change was already incredibly efficient in how often a price even gets compared. Since level prices are compared to the best price array back to front, a lot of prices will just look at the 10th worst price and not even bother checking the other 9 - saving time and compute. Perhaps if we didn't implement THAT change then this one would have had a more significant improvement.

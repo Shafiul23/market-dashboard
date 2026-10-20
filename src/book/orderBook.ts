@@ -1,4 +1,10 @@
-import { canonicalPrice, compareDecimals } from "../lib/decimal"
+import type Big from "big.js"
+import {
+  canonicalPrice,
+  compareDecimals,
+  compareParsedDecimals,
+  parseDecimal,
+} from "../lib/decimal"
 
 export type SnapshotLevel = readonly [price: string, quantity: string]
 
@@ -77,11 +83,13 @@ function selectSideLevels(
   side: "bids" | "asks",
 ): PriceLevel[] {
   const selected: PriceLevel[] = []
+  const parsedPrices: Big[] = []
 
   for (const level of levels.values()) {
     let index = -1
+    const levelPrice = parseDecimal(level.price)
     for (let i = selected.length - 1; i >= 0; i--) {
-      const comparison = compareDecimals(level.price, selected[i].price)
+      const comparison = compareParsedDecimals(levelPrice, parsedPrices[i])
 
       if (
         (side === "bids" && comparison <= 0) ||
@@ -100,10 +108,17 @@ function selectSideLevels(
     }
 
     if (index === -1) {
-      if (selected.length < VISIBLE_LEVELS) selected.push(level)
+      if (selected.length < VISIBLE_LEVELS) {
+        selected.push(level)
+        parsedPrices.push(levelPrice)
+      }
     } else {
       selected.splice(index, 0, level)
-      if (selected.length > VISIBLE_LEVELS) selected.pop()
+      parsedPrices.splice(index, 0, levelPrice)
+      if (selected.length > VISIBLE_LEVELS) {
+        selected.pop()
+        parsedPrices.pop()
+      }
     }
   }
 
