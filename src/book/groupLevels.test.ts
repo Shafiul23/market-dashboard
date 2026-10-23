@@ -11,6 +11,21 @@ function total(levels: Iterable<PriceLevel>): string {
 }
 
 describe("groupLevels", () => {
+  it.each(["bids", "asks"] as const)("selects the best ten %s regardless of insertion order", (side) => {
+    const prices = [14, 2, 19, 5, 11, 1, 17, 8, 20, 3, 16, 7, 12, 4, 18, 6, 15, 9, 13, 10]
+    const levels: SnapshotLevel[] = prices.flatMap((price) => [
+      [`${price}.1`, "0.1"],
+      [`${price}.2`, "0.2"],
+    ])
+    const book = createOrderBook({ bids: levels, asks: levels })
+    const expectedPrices = [...prices].sort((a, b) => side === "bids" ? b - a : a - b)
+      .slice(0, 10).map((price) => String(side === "asks" ? price + 1 : price))
+    const selected = groupLevels(book, "1")[side]
+
+    expect(selected.map((bucket) => bucket.price)).toEqual(expectedPrices)
+    expect(selected.every((bucket) => bucket.quantity === "0.3")).toBe(true)
+  })
+
   it("keeps exact boundaries and rounds fractional bids down and asks up", () => {
     const book = createOrderBook({
       bids: [["101.01", "0.1"], ["102", "0.2"], ["101.99", "0.2"]],
