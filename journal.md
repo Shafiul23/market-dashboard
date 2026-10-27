@@ -725,3 +725,35 @@ What this means for selectsidelevels now is that level price is parsed only once
 In the benchmarks, the median times did improve but marginally. All improvements were around the < 1 ms range which isn't large enough to confidently conclude that this change sped up the application.
 
 The reason for this, I predict, is because the previous change was already incredibly efficient in how often a price even gets compared. Since level prices are compared to the best price array back to front, a lot of prices will just look at the 10th worst price and not even bother checking the other 9 - saving time and compute. Perhaps if we didn't implement THAT change then this one would have had a more significant improvement.
+
+### step 27
+
+Decided to add a custom dropdown to the dashboard. Wasn't happy with how the native html select looks, especially after the themeing updates. First tried importing one from shadcn but wasn't fully happy with how it looks. I thought if I was messing around with the setup to make it look exactly how I wanted then I might as well do it from scratch and eliminate the need to introduce another dependency.
+
+- therefore i've decided to make my own dropdown from scratch - also wanted to avoid using libraries for this
+- We start off with the type definition where the dropdown has an id (to be referred to - specifically one that is passed down from the grouping options parent that passes down an id from the useId hook from react.)
+  - as well as the types of the other props that would be passed down from the grouping options
+- the dropdown function itself lists its own listid to refer to the differnt options
+- has a ref to refer to the div that surrounds the dropdown area. Since the native dropdown usually deals with this, this is one of the first of many examples where dropdown logic needed to be coded in from scratch. Here, a useEffect is defined to listen out for any pointerdown events (includes pushing on a mobile screen). If, during the event being fired, the thing being clicked is not contained within the div that defines the drop down, then the dropdown itself gets dismissed (done by setting its open state to false)
+  - Defined in a use effect where the listener is attached when open is true. The clenup function is returned when open changes or when the component unmounts.
+- We then have a few helper functions: expand and select. expand takes in an index as an argument and passes it into the setActiveIndex state which is responsible for active styling, then opens up the dropdown.
+  - the expand function also serves a dual purpose. If a user navigates throught the dropdown using the 'home' or 'end' keys on their keyboard, then it will set the activeIndex to the relevant spot. Home key will set active index to 0 without actually selecting the option and the end key does the same for the last option
+  - the select function will take an index, check if this index exists in our options array and set the value to this option before closing the menu
+    - it does this through the onChange function defined in the props - making this a controlled component
+    - Decided not to make it too generic for my use case
+  - used onClick of an option and also on space when an activeIndex is set to an option
+- next up we have the handleKeyDown function. This manually sets up some accessibility features that might be needed for the drop down.
+  - the arrowup and down keys share a lot of logic so they're both clumped into one switch case with a ternary to separate the two.
+  - first we prevent default behaviour to stop any actions we don't want like the page jumping around, then we set the direction to 1 for arrowdown and -1 for arrowup. If we're focused on the psedo select then hitting down or up will open the dropdown list.
+  - next we set the active index based on the current index and we progress through the list if we hit arrowdown (moves down on screen) and backwards through the list with arrowup (moves up on screen)
+    - this works by taking the current index, adding direction and the length of options then dividing it by the length of options. Whatever the remainder is is what we set the index to
+    - it is done like this so users can cycle through the list and loop from start to end or end to start
+    - for example, if options.length is 3 and we are currenlty on index 2. Hitting down would set direction to 1 and add this to the index. 2 + 1, then we add options.length so 2 + 1 + 3 = 6. Then we divide by options.length, 3. 6 / 3 = 2. This is a neat number with no remainder so index is set to 0, meaning a user on the last option, hitting down, would return to the start.
+  - enter and space buttons trigger an option if the menu is already open and opens the menu if not.
+  - Esc and tab close the dropdown
+
+- The jsx of the dropdown was touched on earlier, but it is essentially a div which houses a button and an unordered list. The button is disguised as a dropdown so that we're able to implement our custom styling and uses all the correct aria props to ensure accessbility.
+  - e.g., role="combobox" tells screenreaders this isn't a regular button
+- the button itself contains an svg that defines the downwards chevron which flips upside down on open
+- on open, the unordered list is rendered and uses a map to render all the options.
+  - Each option also renders a cool little tick svg that matches the thememing when an option is selected

@@ -16,9 +16,14 @@ it("switches static fixture rows between exact prices and grouped boundaries wit
   const exactAsk = firstRow("Asks").textContent
 
   expect(headlineValues()).toEqual(["65,000.25", "65,001.50", "1.25"])
-  fireEvent.change(screen.getByLabelText("Grouping"), {
-    target: { value: "10" },
-  })
+  const grouping = screen.getByRole("combobox", { name: "Grouping" })
+  grouping.focus()
+  fireEvent.keyDown(grouping, { key: "ArrowDown" })
+  fireEvent.keyDown(grouping, { key: "ArrowDown" })
+  fireEvent.keyDown(grouping, { key: "Enter" })
+  expect(grouping.textContent).toBe("£10 buckets")
+  expect(document.activeElement).toBe(grouping)
+  expect(screen.queryByRole("listbox")).toBeNull()
 
   expect(
     within(firstRow("Bids")).getByRole("cell", { name: "65,000.00" }),
@@ -31,7 +36,8 @@ it("switches static fixture rows between exact prices and grouped boundaries wit
   ).toHaveLength(2)
   expect(headlineValues()).toEqual(["65,000.25", "65,001.50", "1.25"])
 
-  fireEvent.change(screen.getByLabelText("Grouping"), { target: { value: "" } })
+  fireEvent.click(screen.getByRole("combobox", { name: "Grouping" }))
+  fireEvent.click(screen.getByRole("option", { name: "Off" }))
 
   expect(firstRow("Bids").textContent).toBe(exactBid)
   expect(firstRow("Asks").textContent).toBe(exactAsk)
@@ -44,7 +50,8 @@ it("regroups stale data without changing its receipt or freshness", () => {
     target: { value: "Stale" },
   })
   const receipt = screen.getByText(/^Last book update:/).textContent
-  fireEvent.change(screen.getByLabelText("Grouping"), { target: { value: "100" } })
+  fireEvent.click(screen.getByRole("combobox", { name: "Grouping" }))
+  fireEvent.click(screen.getByRole("option", { name: "£100 buckets" }))
 
   const bidRows = within(screen.getByRole("table", { name: "Bids" })).getAllByRole("row")
   const askRows = within(screen.getByRole("table", { name: "Asks" })).getAllByRole("row")
@@ -64,7 +71,8 @@ it("applies a selection made while waiting when a book becomes available", () =>
   render(<FixturePreview />)
   const scenario = screen.getByLabelText("Fixture preview · Sample data")
   fireEvent.change(scenario, { target: { value: "Waiting" } })
-  fireEvent.change(screen.getByLabelText("Grouping"), { target: { value: "1000" } })
+  fireEvent.click(screen.getByRole("combobox", { name: "Grouping" }))
+  fireEvent.click(screen.getByRole("option", { name: "£1000 buckets" }))
   expect(screen.getAllByText("Waiting for data.")).toHaveLength(2)
 
   fireEvent.change(scenario, { target: { value: "Populated" } })

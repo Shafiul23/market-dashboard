@@ -35,6 +35,11 @@ function setup() {
   }
 }
 
+function chooseGrouping(value: string) {
+  fireEvent.click(screen.getByRole("combobox", { name: "Grouping" }))
+  fireEvent.click(screen.getByRole("option", { name: value ? `£${value} buckets` : "Off" }))
+}
+
 function expectStatus(label: string) {
   expect(
     within(screen.getByRole("status")).getByText(`Connection: ${label}`),
@@ -78,27 +83,29 @@ describe("dashboard acceptance flows", () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true)
   })
 
-  it("offers labelled native grouping without reconnecting or refreshing the receipt", () => {
+  it("offers labelled custom grouping without reconnecting or refreshing the receipt", () => {
     const { sockets } = setup()
-    const grouping = screen.getByRole<HTMLSelectElement>("combobox", { name: "Grouping" })
+    const grouping = screen.getByRole<HTMLButtonElement>("combobox", { name: "Grouping" })
     expect(grouping.disabled).toBe(false)
-    expect(within(grouping).getAllByRole("option").map((option) => option.textContent))
+    fireEvent.click(grouping)
+    expect(screen.getAllByRole("option").map((option) => option.textContent))
       .toEqual(["Off", "£10 buckets", "£100 buckets", "£1000 buckets"])
+    fireEvent.click(grouping)
     startLive(sockets)
     expect(grouping.disabled).toBe(false)
     grouping.focus()
     expect(document.activeElement).toBe(grouping)
     const receipt = screen.getByText(/^Last book update:/).textContent
     act(() => vi.advanceTimersByTime(1000))
-    fireEvent.change(grouping, { target: { value: "10" } })
-    expect(grouping.value).toBe("10")
+    chooseGrouping("10")
+    expect(grouping.textContent).toBe("£10 buckets")
     expect(rows("Bids")[0]).toEqual(["100.00", "1.00000000"])
     expect(rows("Asks")).toEqual([["12.00000000", "110.00"]])
     expect(screen.getByText(/£10 grouping/)).toBeTruthy()
     expectOverview("100.00", "100.10", "0.10")
     expect(screen.getByText(/^Last book update:/).textContent).toBe(receipt)
-    fireEvent.change(grouping, { target: { value: "" } })
-    expect(grouping.value).toBe("")
+    chooseGrouping("")
+    expect(grouping.textContent).toBe("Off")
     expect(rows("Asks")[0]).toEqual(["1.00000000", "100.10"])
     expect(sockets).toHaveLength(1)
     expect(sockets[0].send).toHaveBeenCalledTimes(1)
@@ -106,9 +113,9 @@ describe("dashboard acceptance flows", () => {
 
   it("remembers grouping before starting and accepts changes while synchronising", () => {
     const { sockets } = setup()
-    const grouping = screen.getByRole<HTMLSelectElement>("combobox", { name: "Grouping" })
-    fireEvent.change(grouping, { target: { value: "100" } })
-    expect(grouping.value).toBe("100")
+    const grouping = screen.getByRole<HTMLButtonElement>("combobox", { name: "Grouping" })
+    chooseGrouping("100")
+    expect(grouping.textContent).toBe("£100 buckets")
     expect(sockets).toHaveLength(0)
     startLive(sockets)
     expect(rows("Asks")).toEqual([["12.00000000", "200.00"]])
@@ -116,13 +123,13 @@ describe("dashboard acceptance flows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Stop order book" }))
     fireEvent.click(screen.getByRole("button", { name: "Start order book" }))
-    fireEvent.change(grouping, { target: { value: "1000" } })
+    chooseGrouping("1000")
     act(() => {
       sockets[1].open()
       sockets[1].message(fullSnapshot)
     })
-    fireEvent.change(grouping, { target: { value: "" } })
-    expect(grouping.value).toBe("")
+    chooseGrouping("")
+    expect(grouping.textContent).toBe("Off")
     expect(screen.queryByText(/£100 grouping/)).toBeNull()
     expect(rows("Asks")[0]).toEqual(["1.00000000", "100.10"])
     act(() => sockets[1].message(heartbeatMessage))
@@ -134,7 +141,6 @@ describe("dashboard acceptance flows", () => {
   it("regroups the published book immediately without flushing or delaying pending updates", () => {
     const { sockets } = setup()
     startLive(sockets)
-    const grouping = screen.getByRole<HTMLSelectElement>("combobox", { name: "Grouping" })
     const receipt = screen.getByText(/^Last book update:/).textContent
     act(() => {
       vi.advanceTimersByTime(1000)
@@ -142,7 +148,7 @@ describe("dashboard acceptance flows", () => {
       vi.advanceTimersByTime(200)
     })
 
-    fireEvent.change(grouping, { target: { value: "10" } })
+    chooseGrouping("10")
     expect(rows("Bids")[0]).toEqual(["100.00", "1.00000000"])
     expect(rows("Asks")).toEqual([["12.00000000", "110.00"]])
     expect(screen.getByText(/^Last book update:/).textContent).toBe(receipt)
@@ -161,8 +167,8 @@ describe("dashboard acceptance flows", () => {
     (interruption) => {
       const { sockets } = setup()
       startLive(sockets)
-      const grouping = screen.getByRole<HTMLSelectElement>("combobox", { name: "Grouping" })
-      fireEvent.change(grouping, { target: { value: "10" } })
+      const grouping = screen.getByRole<HTMLButtonElement>("combobox", { name: "Grouping" })
+      chooseGrouping("10")
       const receipt = screen.getByText(/^Last book update:/).textContent
       act(() => sockets[0].message(updateMessage))
       if (interruption === "stop") {
@@ -179,11 +185,11 @@ describe("dashboard acceptance flows", () => {
         act(() => sockets[0].error())
         expectStatus("Reconnecting")
       }
-      fireEvent.change(grouping, { target: { value: "100" } })
+      chooseGrouping("100")
 
       function expectRetained() {
         expect(grouping.disabled).toBe(false)
-        expect(grouping.value).toBe("100")
+        expect(grouping.textContent).toBe("£100 buckets")
         expect(screen.getByText(/£100 grouping/)).toBeTruthy()
         expect(rows("Bids")).toEqual([
           ["100.00", "1.00000000"], ["0.00", "11.00000000"],
@@ -214,7 +220,7 @@ describe("dashboard acceptance flows", () => {
       act(() => sockets[1].message(heartbeatMessage))
       expectStatus("Live")
       expect(grouping.disabled).toBe(false)
-      expect(grouping.value).toBe("100")
+      expect(grouping.textContent).toBe("£100 buckets")
       expect(screen.getByText(/£100 grouping/)).toBeTruthy()
       expect(rows("Bids")).toEqual([["0.00", "4.00000000"]])
       expect(rows("Asks")).toEqual([["5.00000000", "200.00"]])

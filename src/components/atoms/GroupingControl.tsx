@@ -1,6 +1,10 @@
 import { useId } from "react"
+import { Dropdown } from "./dropdown"
 
-const GROUPING_INTERVALS = ["10", "100", "1000"]
+const GROUPING_OPTIONS = [
+  { value: "", label: "Off" },
+  ...["10", "100", "1000"].map((value) => ({ value, label: `£${value} buckets` })),
+]
 
 type GroupingControlProps = {
   interval: string | null
@@ -12,17 +16,12 @@ export function GroupingControl({ interval, onChange }: GroupingControlProps) {
   return (
     <div className="flex items-center gap-3 text-sm">
       <label htmlFor={id}>Grouping</label>
-      <select
+      <Dropdown
         id={id}
         value={interval ?? ""}
-        onChange={(event) => onChange(event.target.value || null)}
-        className="rounded border border-control bg-background px-2 py-1 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-      >
-        <option value="">Off</option>
-        {GROUPING_INTERVALS.map((value) => (
-          <option key={value} value={value}>£{value} buckets</option>
-        ))}
-      </select>
+        options={GROUPING_OPTIONS}
+        onChange={(value) => onChange(value || null)}
+      />
     </div>
   )
 }
