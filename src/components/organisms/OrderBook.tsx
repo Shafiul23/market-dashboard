@@ -20,14 +20,14 @@ export function OrderBook({
       <h2 id="book-heading" className="text-lg font-semibold">
         Order book
       </h2>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-3 flex flex-col items-start justify-between gap-3 md:flex-row md:flex-wrap md:items-center">
         <p className="text-sm text-muted">
           Prices in GBP · Quantities in BTC ·{" "}
           {isGrouped
             ? `Up to 10 buckets per side · £${view.groupingInterval} grouping`
             : "10 levels per side"}
         </p>
-        <div className="ml-auto">
+        <div className="md:ml-auto">
           <GroupingControl
             interval={view.groupingInterval}
             onChange={onGroupingChange}
