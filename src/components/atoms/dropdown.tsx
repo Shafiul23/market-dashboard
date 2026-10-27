@@ -110,45 +110,45 @@ export function Dropdown({ id, value, options, onChange }: DropdownProps) {
           />
         </svg>
       </button>
-      {open && (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-labelledby={id}
-          onMouseDown={(event) => event.preventDefault()}
-          className="absolute right-0 top-full z-20 mt-2 min-w-full rounded border border-divider bg-surface p-1 shadow-lg"
-        >
-          {options.map((option, index) => (
-            <li
-              key={option.value}
-              id={`${listId}-${index}`}
-              role="option"
-              aria-selected={option.value === value}
-              onMouseMove={() => setActiveIndex(index)}
-              onClick={() => select(index)}
-              className={`flex cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded px-2 py-1.5 ${index === activeIndex ? "bg-surface-hover" : ""} ${option.value === value ? "text-accent-text" : "text-primary"}`}
-            >
-              {option.label}
-              {option.value === value && (
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="size-3.5 shrink-0"
-                >
-                  <path
-                    d="m3 8 3 3 7-7"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul
+        id={listId}
+        role="listbox"
+        aria-labelledby={id}
+        data-open={open}
+        inert={!open}
+        onMouseDown={(event) => event.preventDefault()}
+        className="dropdown-list absolute right-0 top-full z-20 mt-2 min-w-full rounded border border-divider bg-surface p-1 shadow-lg"
+      >
+        {options.map((option, index) => (
+          <li
+            key={option.value}
+            id={`${listId}-${index}`}
+            role="option"
+            aria-selected={option.value === value}
+            onMouseMove={() => setActiveIndex(index)}
+            onClick={() => select(index)}
+            className={`flex cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded px-2 py-1.5 transition-[background-color] duration-[160ms] ease-linear motion-reduce:transition-none ${index === activeIndex ? "bg-surface-hover" : ""} ${option.value === value ? "text-accent-text" : "text-primary"}`}
+          >
+            {option.label}
+            {option.value === value && (
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 16 16"
+                fill="none"
+                className="size-3.5 shrink-0"
+              >
+                <path
+                  d="m3 8 3 3 7-7"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
