@@ -15,6 +15,25 @@ export function FeedStatus({
 
   useEffect(() => {
     const pulse = pulseRef.current
+    const svg = pulse?.ownerSVGElement
+    if (!pulse || !svg) return
+
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      const x = width / 2
+      const y = height / 2
+
+      pulse.setAttribute(
+        "d",
+        `M0 ${y} H${x - 12} L${x - 6} ${y + 4} L${x} ${y - 12} L${x + 6} ${y + 10} L${x + 12} ${y} H${width}`,
+      )
+    })
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const pulse = pulseRef.current
     if (heartbeatCount === 0 || !pulse?.animate) return
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
 
@@ -48,17 +67,14 @@ export function FeedStatus({
           <span>Heartbeat:</span>
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 240 40"
-            preserveAspectRatio="none"
             fill="none"
             stroke="currentColor"
             aria-hidden="true"
             className="h-10 w-full overflow-hidden text-heartbeat"
           >
-            <path d="M0 20 H240" className="text-divider" />
+            <line x1="0" y1="50%" x2="100%" y2="50%" className="text-divider" />
             <path
               ref={pulseRef}
-              d="M0 20 H108 L114 24 L120 8 L126 30 L132 20 H240"
               pathLength="1"
               strokeDasharray="0.8 1"
               strokeDashoffset="0.8"
