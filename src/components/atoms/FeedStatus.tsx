@@ -1,12 +1,17 @@
 import { useEffect, useRef } from "react"
+import { DataFreshness } from "./DataFreshness"
 
 type FeedStatusProps = {
+  isStale: boolean
+  isWaiting: boolean
   connectionLabel: string
   heartbeatCount: number
   error?: string | null
 }
 
 export function FeedStatus({
+  isStale,
+  isWaiting,
   connectionLabel,
   heartbeatCount,
   error,
@@ -64,7 +69,7 @@ export function FeedStatus({
       >
         <p>Connection: {connectionLabel}</p>
         <div className="space-y-2">
-          <span>Heartbeat:</span>
+          <DataFreshness isStale={isStale} isWaiting={isWaiting} />
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"

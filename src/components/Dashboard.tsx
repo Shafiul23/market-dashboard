@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from "react"
 import { createBookView } from "../book/bookView"
 import type { ReadonlyOrderBook } from "../book/orderBook"
-import { DataFreshness } from "./atoms/DataFreshness"
 import { ReceiptTime } from "./atoms/ReceiptTime"
 import { MarketHeader } from "./organisms/MarketHeader"
 import { MarketOverview } from "./organisms/MarketOverview"
@@ -47,6 +46,8 @@ export function Dashboard({
       <main className="px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-5xl space-y-8 group-[:fullscreen]:max-w-none">
           <MarketHeader
+            isStale={isStale}
+            isWaiting={isWaiting}
             connectionLabel={connectionLabel}
             heartbeatCount={heartbeatCount}
             error={error}
@@ -54,8 +55,6 @@ export function Dashboard({
             enabled={enabled}
             fullscreenTargetRef={dashboardRef}
           />
-
-          <DataFreshness isStale={isStale} isWaiting={isWaiting} />
 
           <MarketOverview view={view} isWaiting={isWaiting} />
 

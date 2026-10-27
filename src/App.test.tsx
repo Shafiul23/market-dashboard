@@ -197,7 +197,7 @@ describe("dashboard acceptance flows", () => {
         expect(rows("Asks")).toEqual([["12.00000000", "200.00"]])
         expectOverview("100.00", "100.10", "0.10")
         expect(screen.getByText(/^Last book update:/).textContent).toBe(receipt)
-        expect(screen.getByText(/^Stale data:/)).toBeTruthy()
+        expect(screen.getByText(/^Data: Stale/)).toBeTruthy()
       }
       act(() => vi.advanceTimersByTime(499))
       expectRetained()
@@ -263,12 +263,12 @@ describe("dashboard acceptance flows", () => {
     expectStatus("Synchronising")
     act(() => sockets[0].message(fullSnapshot))
     expectStatus("Synchronising")
-    expect(screen.getByText("Waiting for market data.")).toBeTruthy()
+    expect(screen.getByText("Data: Waiting")).toBeTruthy()
     expect(screen.getAllByText("Waiting for data.")).toHaveLength(2)
 
     act(() => sockets[0].message(heartbeatMessage))
     expectStatus("Live")
-    expect(screen.getByText(/^Live data:/)).toBeTruthy()
+    expect(screen.getByText(/^Data: Live/)).toBeTruthy()
     expectOverview("100.00", "100.10", "0.10")
     expect(rows("Bids")).toEqual(
       [
@@ -409,7 +409,7 @@ describe("dashboard acceptance flows", () => {
       expectStatus("Reconnecting")
       expect(screen.getByRole("status")).toBe(status)
       expect(sockets[0].readyState).toBeGreaterThanOrEqual(2)
-      const stale = screen.getByText(/^Stale data:/)
+      const stale = screen.getByText(/^Data: Stale/)
       for (const name of ["Market overview", "Order book"]) {
         expect(
           screen.getByRole("region", { name }).getAttribute("aria-describedby"),
@@ -433,7 +433,7 @@ describe("dashboard acceptance flows", () => {
       expectStatus("Synchronising")
       act(() => sockets[1].message(heartbeatMessage))
       expectStatus("Synchronising")
-      expect(screen.getByText(/^Stale data:/)).toBeTruthy()
+      expect(screen.getByText(/^Data: Stale/)).toBeTruthy()
       expect(rows("Bids")).toEqual(previousBids)
       expect(rows("Asks")).toEqual(previousAsks)
       expect(screen.getByText(/^Last book update:/).textContent).toBe(receipt)
@@ -447,7 +447,7 @@ describe("dashboard acceptance flows", () => {
       )
       expectStatus("Live")
       expect(screen.getByRole("status")).toBe(status)
-      expect(screen.getByText(/^Live data:/)).toBeTruthy()
+      expect(screen.getByText(/^Data: Live/)).toBeTruthy()
       expectOverview("98.00", "102.00", "4.00")
       expect(rows("Bids")).toEqual([["98.00", "4.00000000"]])
       expect(rows("Asks")).toEqual([["5.00000000", "102.00"]])
@@ -468,7 +468,7 @@ describe("dashboard acceptance flows", () => {
     expectOverview("—Unavailable", "105.00", "—Unavailable")
     expect(rows("Bids")).toEqual([["No bids available."]])
     expect(rows("Asks")).toEqual([["2.00000000", "105.00"]])
-    expect(screen.queryByText("Waiting for market data.")).toBeNull()
+    expect(screen.queryByText("Data: Waiting")).toBeNull()
   })
 
   it("stops updates and recovery when the user stops the book or leaves the page", () => {
@@ -477,7 +477,7 @@ describe("dashboard acceptance flows", () => {
     act(() => sockets[0].message(updateMessage))
     fireEvent.click(screen.getByRole("button", { name: "Stop order book" }))
     expectStatus("Stopped")
-    expect(screen.getByText(/^Stale data:/)).toBeTruthy()
+    expect(screen.getByText(/^Data: Stale/)).toBeTruthy()
     expectOverview("100.00", "100.10", "0.10")
     expect(sockets[0].close).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(0)

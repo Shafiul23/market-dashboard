@@ -64,7 +64,7 @@ it("regroups stale data without changing its receipt or freshness", () => {
   expect(within(askRows[1]).getByRole("cell", { name: "65,100.00" })).toBeTruthy()
   expect(within(askRows[1]).getByRole("cell", { name: "3.50000000" })).toBeTruthy()
   expect(screen.getByText(/^Last book update:/).textContent).toBe(receipt)
-  expect(screen.getByText(/^Stale data:/)).toBeTruthy()
+  expect(screen.getByText(/^Data: Stale/)).toBeTruthy()
 })
 
 it("applies a selection made while waiting when a book becomes available", () => {

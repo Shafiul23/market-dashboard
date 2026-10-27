@@ -4,6 +4,8 @@ import { FeedStatus } from "../atoms/FeedStatus"
 import { OrderBookToggle } from "../atoms/OrderBookToggle"
 
 type MarketHeaderProps = {
+  isStale: boolean
+  isWaiting: boolean
   connectionLabel: string
   heartbeatCount: number
   error?: string | null
@@ -13,6 +15,8 @@ type MarketHeaderProps = {
 }
 
 export function MarketHeader({
+  isStale,
+  isWaiting,
   connectionLabel,
   heartbeatCount,
   error,
@@ -42,6 +46,8 @@ export function MarketHeader({
         )}
       </div>
       <FeedStatus
+        isStale={isStale}
+        isWaiting={isWaiting}
         connectionLabel={connectionLabel}
         heartbeatCount={heartbeatCount}
         error={error}
