@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react"
-import { DataFreshness } from "./DataFreshness"
 
 type FeedStatusProps = {
   isStale: boolean
@@ -69,7 +68,9 @@ export function FeedStatus({
       >
         <p>Connection: {connectionLabel}</p>
         <div className="space-y-2">
-          <DataFreshness isStale={isStale} isWaiting={isWaiting} />
+          <p id="data-freshness">
+            {isWaiting ? "Data: Waiting" : isStale ? "Data: Stale" : "Data: Live"}
+          </p>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
