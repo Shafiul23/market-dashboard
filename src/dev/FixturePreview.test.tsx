@@ -23,7 +23,8 @@ it("switches static fixture rows between exact prices and grouped boundaries wit
   fireEvent.keyDown(grouping, { key: "Enter" })
   expect(grouping.textContent).toBe("£10 buckets")
   expect(document.activeElement).toBe(grouping)
-  expect(screen.queryByRole("listbox")).toBeNull()
+  expect(grouping.getAttribute("aria-expanded")).toBe("false")
+  expect(screen.getByRole("listbox").hasAttribute("inert")).toBe(true)
 
   expect(
     within(firstRow("Bids")).getByRole("cell", { name: "65,000.00" }),

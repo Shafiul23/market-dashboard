@@ -757,3 +757,22 @@ Decided to add a custom dropdown to the dashboard. Wasn't happy with how the nat
 - the button itself contains an svg that defines the downwards chevron which flips upside down on open
 - on open, the unordered list is rendered and uses a map to render all the options.
   - Each option also renders a cool little tick svg that matches the thememing when an option is selected
+
+### step 28
+
+Lot of UI polish in the last few commits:
+
+- best bid, ask and spread now appear as singular rows on mobile views instead of the cards that exist on larger screens
+- grouping controls stack below the order book description on smaller screens
+- fixed the heartbeat graphic - was breaking on smaller screens
+  - utilised ResizeObserver api from browser
+  - what this does is provide pixel perfect coordinates so that when the pulse svg is painted, it can aim its center at the center of the panel. This way, the animation can happen consistently at any size while still keeping the benefits of crisp definition due to being vector based
+- Decided to get rid of the data freshness card
+  - felt like bloat. I added one row to the diagnostics panel instead to convey the same information.
+  - simplified app architecture too since DataFreshness component no longer needed, just the stale boolean fed right into FeedStatus
+
+- Finally, just added some animations to smooth out all the visibly interactable parts of the application.
+  - added a 160 ms transition to the theme switch slider
+  - added a 160 ms transition to the unordered list in the dropdown. Fades in and slides down a bit too. Opposite on close
+    - had to switch from conditionally rendering the list to always rendering it but shwoing / hiding with css + the data-open prop in the ul
+  - the list itself also has some animations with selected styling. Keying through the list or hovering from option to option has linear fading
