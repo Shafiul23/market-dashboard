@@ -104,7 +104,8 @@ try {
       await page.goto(
         `${origin}/fixtures.html?load=${load ?? ""}&scenario=${scenario}`,
       )
-      await page.getByLabel("Grouping", { exact: true }).selectOption("10")
+      await page.getByRole("combobox", { name: "Grouping", exact: true }).click()
+      await page.getByRole("option", { name: "£10 buckets", exact: true }).click()
       const cdp = await context.newCDPSession(page)
       const events = []
       cdp.on("Tracing.dataCollected", ({ value }) => events.push(...value))
