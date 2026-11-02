@@ -68,72 +68,53 @@ sequenceDiagram
     UI-->>User: Keep last values, marked stale
 ```
 
-Many crypto exchanges offer a free tier web socket api that provides high
-volume, streamable data. The data in particular that this application is built
-for is called an orderbook. An orderbook tracks the bids (how much someone is
-willing to pay) and the asks (how much someone is willing to sell for) for an
-underlying asset. The range of assets they can work with is wide but in this
-project we're working with cryptocurrencies.
+An order book tracks the bids (how much someone is willing to pay) and the
+asks (how much someone is willing to sell for) for an asset. In this project
+we're looking at Bitcoin, priced in GBP, using Coinbase's live feed.
 
-The journey begins at the Start/Stop control on Dashboard.tsx. On start, a
-change in state travels through the Dashboard then through App.tsx where it
-reaches the useOrderBook hook and enables the feed. This hook is the bridge
-between React state and the feed controller. The controller has many
-responsibilities. Once it opens the WebSocket with Coinbase successfully, it
-sends a subscribe type message to request the BTC-GBP product from Coinbase.
-This product includes two channels: an initial orderbook object of type
-'snapshot', containing a relatively high volume of bids and asks, alongside a
-'heartbeat' type message. The heartbeats indicate the connection is healthy and
-power the pulse animation inside the diagnostics panel on the main dashboard.
-This is so users can be confident the connection is working if prices aren't
-moving or look static (introduced this feature when wondering if the app was
-broken when viewing on a quiet Saturday morning.)
+The journey begins at the Start/Stop control on the Dashboard. Pressing Start
+changes the enabled state in `App.tsx`, which tells `useOrderBook` to start the
+feed controller. This hook is the bridge between React and the controller - it
+manages the controller's lifetime and stores the state it publishes for the
+Dashboard to use.
 
-The third type of message that comes from Coinbase is 'l2update' which can
-happen up to 20 times per second, or every 50 ms, and includes the latest
-quantities associated with each price level. The controller ingests the initial
-snapshot and decodes the content within - which means it combs through what is
-being sent over, validates that it is data that is expected then sorts it into a
-suitable category. Once messages are decoded, snapshot type messages are sent
-over to an order book function which maintains a working book object. This
-entails storing the prices into a map. It does this by using prices as canonical
-keys. Therefore, when new quantities come in for a specific price in the form of
-an l2update message, the map allows efficient lookup and replacement by price. A
-price that doesn't exist on the map gets added new, and if it already exists
-then the price is updated with the new quantity. 0 quantities are how Coinbase
-communicates that a price no longer exists on the orderbook, so these remove the
-level entirely.
+The controller lives in `bookFeed.ts`. It opens a WebSocket with Coinbase, then
+subscribes to the `level2_batch` and `heartbeat` channels for BTC-GBP. The status
+moves from Connecting to Synchronising while it waits for an initial `snapshot`
+and a heartbeat. Once both have arrived, it marks the feed Live and publishes
+the initial book immediately.
 
-An initial snapshot, once decoded and confirmed with a healthy heartbeat, is
-published immediately, then the working orderbook is maintained with every
-update that comes in. Every 500 ms it copies a snapshot of the working book then
-sends the published book over to the Dashboard. The reason it does this is to
-ensure that incoming price updates don't mutate the book object being sent over
-to the view calculations. Once the Dashboard receives the published book, it
-passes it through the view function which takes the top 10 prices, accounts for
-any grouping options, sorts the data into best prices, then produces display
-data, like rows of prices, labels and spread.
+Incoming messages are parsed and validated before being applied to the working
+book, which stores bids and asks in separate maps using canonical price keys.
+This allows efficient lookup and replacement by price. `l2update` messages add
+new levels or replace existing quantities, while a quantity of 0 removes the
+level entirely. `big.js` handles decimal arithmetic so prices and quantities
+aren't affected by typical floating point rounding errors.
 
-The view calculation is memoized because it sits under the Dashboard parent
-which is also responsible for the heartbeat animation - fuelled by the heartbeat
-channel. The heartbeats come in every ~ 1 s from coinbase to indicate that a
-connection is healthy, and increments a counter to trigger a React render. This
-causes Dashboard to update which would usually trigger a recalculation of the
-view, but memoization prevents this from happening. This way, the Dashboard can
-update and render the heartbeat animation with incoming heartbeat messages,
-without computing the view more often than it needs to.
+The working book is maintained outside React with every accepted update. When
+there is new data, the controller publishes a copy on a 500 ms cadence. This
+limits how often the Dashboard recalculates its view, and copying the maps
+means incoming updates don't mutate the book being used for those calculations.
 
-The view calculation entails taking the published version of the book (the one
-that is copied in the controller) then sorting the best 10 prices. It does this
-by storing an array of the first 10 prices, then comparing each new price
-against this top 10. If the new price is better, it is sliced into the
-appropriate ranking. This way, the entire book isn't sorted, only the top 10 are
-in the relevant order but unnecessary work is avoided while accounting for each
-price in the book. If grouping is turned on, a slightly different method is used
-in that the prices are all placed into buckets which groups them to the nearest
-relevant boundary then sums the quantities. For example, if £10 grouping is
-selected and a bid of £111 is being considered, then it is placed in the £110
-boundary because we don't want the Dashboard to show better prices than reality.
-Similarly, if an ask of £111 exists, then it would be grouped into the £120
-boundary. The buckets are then spread into an array and sorted best to worst,
-then sliced of the top 10 to produce the rows.
+The view calculation scans the published book using a custom top-k selection
+algorithm, keeping the best 10 prices per side without sorting the entire book.
+Grouping instead builds buckets from the full book and sums their quantities.
+With £10 grouping, a bid at £111 goes into the £110 bucket, while an ask at £111
+goes into the £120 bucket. Bids round down and asks round up because we don't
+want to show better prices than reality. The best 10 buckets become the rows,
+while best bid, best ask and spread still use exact prices.
+
+Heartbeats power the pulse animation in the diagnostics panel. I introduced
+this after wondering if the app was broken on a quiet Saturday morning when
+prices weren't moving. Heartbeats update a counter without changing the
+published book or receipt time. The view calculation is memoized against the
+book, receipt time and grouping interval, so these renders don't repeat that
+work. The receipt label shows when the last accepted book message was received
+locally, in UTC. It isn't an exchange timestamp or a latency measurement.
+
+Pressing Stop closes the connection and clears the controller's timers, keeping
+the last displayed values marked stale. Failures also mark values stale while
+the controller retries with increasing, randomised delays. Each new connection
+rebuilds the book from a fresh snapshot and waits for a heartbeat before
+returning to Live. Hiding the tab suspends the feed, returning starts a fresh
+connection, and going offline pauses retries until the browser is online again.
