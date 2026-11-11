@@ -64,6 +64,12 @@
 }
 
 @layer base {
+  @media (prefers-reduced-motion: no-preference) {
+    * {
+      transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+    }
+  }
+
   :root {
     color-scheme: dark;
     background-color: var(--color-background);
