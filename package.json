@@ -18,6 +18,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@coldtea/pr-lens-cli": "^0.14.0",
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@tailwindcss/vite": "^4.3.3",
